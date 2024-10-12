@@ -39,17 +39,6 @@ fn program_entry_wrap() -> Result<(), Error> {
         return Err(Error::InvalidVmVersion);
     }
 
-    let res: Cow<'static, [u8]> = ssri_methods!(
-        argv: &argv,
-        invalid_method: Error::InvalidMethodPath,
-        invalid_args: Error::InvalidMethodArgs,
-        "SSRI.get_cell_deps" => Ok(Cow::from(&[0, 0, 0, 0][..])),
-        "UDT.name" => udt::name(),
-        "UDT.symbol" => udt::name(),
-        "UDT.decimals" => Ok(Cow::from(&[8][..])),
-        "UDT.balance" => Ok(Cow::from(&[0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0][..])),
-    )?;
-
     set_content(&res)?;
 
     Ok(())

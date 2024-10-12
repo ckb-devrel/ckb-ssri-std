@@ -1,7 +1,6 @@
-# ssri-test
+# ckb_ssri_sdk
 
-TODO: Write this readme
+## Goals
 
-*This project was bootstrapped with [ckb-script-templates].*
-
-[ckb-script-templates]: https://github.com/cryptape/ckb-script-templates
+1. Easier implementations of SSRI namespacing;
+2. Unified entry function;
