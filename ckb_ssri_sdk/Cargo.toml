@@ -10,5 +10,7 @@ proc-macro = true
 ckb-hash = "0.116.1"
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
-ckb-ssri = { path = "../ckb-ssri" }
+ckb_ssri_sdk_proc_macro = { path = "../ckb_ssri_sdk_proc_macro" }
 proc-macro2 = "1.0.87"
+ckb-std = "0.15.3"
+serde_molecule = "1.1.0"

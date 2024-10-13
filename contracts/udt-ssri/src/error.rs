@@ -1,4 +1,6 @@
 use ckb_std::error::SysError;
+use ckb_ssri_sdk::SSRIError;
+use ckb_ssri_sdk::public_module_traits::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
 
 /// Error
 #[repr(i8)]
@@ -12,9 +14,29 @@ pub enum Error {
     SpawnWrongMemoryLimit,
     SpawnExceededMaxPeakMemory,
 
-    InvalidVmVersion,
-    InvalidMethodPath,
-    InvalidMethodArgs,
+    SSRIMethodsNotFound,
+    SSRIMethodsArgsInvalid,
+    SSRIMethodsNotImplemented,
+
+    InsufficientBalance,
+
+    NameUndefined,
+    SymbolUndefined,
+    DecimalsUndefined,
+    TotalSupplyUndefined,
+    CapUndefined,
+    ExtensionDataNotFound,
+
+    NoTransferPermission,
+    NoMintPermission,
+    NoBurnPermission,
+    NoApprovePermission,
+    NoIncreaseAllowancePermission,
+    NoDecreaseAllowancePermission,
+
+    NoPausePermission,
+    NoUnpausePermission,
+    AbortedFromPause
 }
 
 impl From<SysError> for Error {
@@ -32,3 +54,45 @@ impl From<SysError> for Error {
         }
     }
 }
+
+impl From<SSRIError> for Error {
+    fn from(err: SSRIError) -> Self {
+        match err {
+            SSRIError::SSRIMethodsNotFound => Self::SSRIMethodsArgsInvalid,
+            SSRIError::SSRIMethodsArgsInvalid => Self::SSRIMethodsNotImplemented,
+            SSRIError::SSRIMethodsNotImplemented => Self::SSRIMethodsNotImplemented,
+        }
+    }
+}
+
+impl From<UDTError> for Error {
+    fn from(err: UDTError) -> Self {
+        match err {
+            UDTError::InsufficientBalance => Self::InsufficientBalance,
+        }
+    }
+}
+
+impl From<UDTMetadataError> for Error {
+    fn from(err: UDTMetadataError) -> Self {
+        match err {
+            UDTMetadataError::NameUndefined => Self::NameUndefined,
+            UDTMetadataError::SymbolUndefined => Self::SymbolUndefined,
+            UDTMetadataError::DecimalsUndefined => Self::DecimalsUndefined,
+            UDTMetadataError::TotalSupplyUndefined => Self::TotalSupplyUndefined,
+            UDTMetadataError::CapUndefined => Self::CapUndefined,
+            UDTMetadataError::ExtensionDataNotFound => Self::ExtensionDataNotFound,
+        }
+    }
+}
+
+impl From<UDTPausableError> for Error {
+    fn from(err: UDTPausableError) -> Self {
+        match err {
+            UDTPausableError::NoPausePermission => Self::NoPausePermission,
+            UDTPausableError::NoUnpausePermission => Self::NoUnpausePermission,
+            UDTPausableError::AbortedFromPause => Self::AbortedFromPause,
+        }
+    }
+}
+

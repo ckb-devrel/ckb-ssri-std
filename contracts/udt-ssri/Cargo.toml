@@ -5,5 +5,4 @@ edition = "2021"
 
 [dependencies]
 ckb-std = { version = "0.15.1", features = ["ckb2023"] }
-ckb-ssri = { path = "../../ckb-ssri" }
-ckb-ssri-proc-macro = { path = "../../ckb-ssri-proc-macro" }
+ckb_ssri_sdk = { path = "../../ckb_ssri_sdk" }
