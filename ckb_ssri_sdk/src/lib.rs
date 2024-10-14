@@ -47,4 +47,5 @@ pub enum SSRIError {
     SSRIMethodsNotFound = 4,
     SSRIMethodsArgsInvalid = 5,
     SSRIMethodsNotImplemented = 6,
+    SSRIMethodRequireHigherLevel = 7,
 }

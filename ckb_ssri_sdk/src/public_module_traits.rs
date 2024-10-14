@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 
 pub trait UDT {
     fn balance() -> Result<u128, SSRIError>;
-    fn transfer(to: Script, amount: u128) -> Result<(), SSRIError>;
+    fn transfer(from: Script, to: Script, amount: u128) -> Result<(), SSRIError>;
 }
 
 pub enum UDTError {
@@ -44,9 +44,8 @@ pub enum UDTMetadataError {
     ExtensionDataNotFound,
 }
 
-pub trait UDTExtended: UDT {
+pub trait UDTExtended: UDT + UDTMetadata {
     fn balance_of(lock: Script) -> Result<u128, SSRIError>;
-    fn transfer(from: Script, to: Script, amount: u128) -> Result<(), SSRIError>;
     fn mint(lock: Script, amount: u128) -> Result<(), SSRIError>;
     fn burn(lock: Script, amount: u128) -> Result<(), SSRIError>;
     fn approve(spender: Script, amount: u128) -> Result<(), SSRIError>;
@@ -60,29 +59,31 @@ pub struct UDTExtendedData {
 }
 
 pub enum UDTExtendedError {
-    NoTransferPermission,
-    NoMintPermission,
     NoBurnPermission,
     NoApprovePermission,
     NoIncreaseAllowancePermission,
     NoDecreaseAllowancePermission,
 }
 
-pub trait UDTPausable: UDT {
+pub trait UDTPausable: UDT + UDTMetadata {
     /* Note: Pausing/Unpause without lock would take effect on the global level */
     fn pause(lock: Option<Script>) -> Result<(), SSRIError>;
     fn unpause(lock: Option<Script>) -> Result<(), SSRIError>;
+    fn is_paused(locks: Vec<Script>) -> Result<bool, SSRIError>;
+    fn enumerate_paused() -> Result<Vec<Script>, SSRIError>;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct UDTPausableData {
     pause_list: Vec<Byte32>,
-    next_type_hash: Byte32,
+    next_type_hash: Optional<Byte32>,
 }
 
 pub enum UDTPausableError {
     NoPausePermission,
     NoUnpausePermission,
-    AbortedFromPause
+    AbortedFromPause,
+    IncompletePauseList
 }
 
 

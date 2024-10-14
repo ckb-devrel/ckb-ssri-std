@@ -1,5 +1,5 @@
 [package]
-name = "udt-ssri"
+name = "pausable-udt-ssri"
 version = "0.1.0"
 edition = "2021"
 
