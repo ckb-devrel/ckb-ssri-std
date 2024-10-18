@@ -566,6 +566,7 @@ dependencies = [
  "ckb_ssri_sdk_proc_macro",
  "proc-macro2",
  "quote",
+ "serde",
  "serde_molecule",
  "syn 2.0.79",
 ]
@@ -923,6 +924,8 @@ version = "0.1.0"
 dependencies = [
  "ckb-std",
  "ckb_ssri_sdk",
+ "serde",
+ "serde_molecule",
 ]
 
 [[package]]

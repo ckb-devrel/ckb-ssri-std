@@ -47,18 +47,18 @@ pub trait UDTExtended: UDT + UDTMetadata {
     ) -> Result<RawTransaction, SSRIError>;
     fn approve(
         tx: Optional<RawTransaction>,
-        spender: Script,
+        spender_lock_hash: [u8; 32],
         amount: u128,
     ) -> Result<(), SSRIError>;
     fn allowance(owner: Script, spender: Script) -> Result<u128, SSRIError>;
     fn increase_allowance(
         tx: Optional<RawTransaction>,
-        spender: Script,
+        spender_lock_hash: [u8; 32],
         added_value: u128,
     ) -> Result<(), SSRIError>;
     fn decrease_allowance(
         tx: Optional<RawTransaction>,
-        spender: Script,
+        spender_lock_hash: [u8; 32],
         subtracted_value: u128,
     ) -> Result<(), SSRIError>;
 }
@@ -75,21 +75,23 @@ pub enum UDTExtendedError {
 }
 
 pub trait UDTPausable: UDT + UDTMetadata {
-    /* Note: Pausing/Unpause without lock would take effect on the global level */
-    fn pause(tx: Optional<RawTransaction>, locks: Vec<Script>)
-        -> Result<RawTransaction, SSRIError>;
+    /* Note: Pausing/Unpause without lock hashes would take effect on the global level */
+    fn pause(
+        tx: Optional<RawTransaction>,
+        lock_hashes: &Vec<[u8; 32]>,
+    ) -> Result<RawTransaction, SSRIError>;
     fn unpause(
         tx: Optional<RawTransaction>,
-        locks: Vec<Script>,
+        lock_hashes: &Vec<[u8; 32]>,
     ) -> Result<RawTransaction, SSRIError>;
-    fn is_paused(locks: Vec<Script>) -> Result<bool, SSRIError>;
-    fn enumerate_paused() -> Result<Vec<Script>, SSRIError>;
+    fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, SSRIError>;
+    fn enumerate_paused() -> Result<&Vec<[u8; 32]>, SSRIError>;
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct UDTPausableData {
-    pause_list: Vec<Byte32>,
-    next_type_hash: Optional<Byte32>,
+    pause_list: Vec<[u8; 32]>,
+    next_type_hash: Optional<[u8; 32]>,
 }
 
 pub enum UDTPausableError {

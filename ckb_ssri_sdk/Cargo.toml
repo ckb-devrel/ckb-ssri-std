@@ -14,3 +14,4 @@ ckb_ssri_sdk_proc_macro = { path = "../ckb_ssri_sdk_proc_macro" }
 proc-macro2 = "1.0.87"
 ckb-std = "0.15.3"
 serde_molecule = "1.1.0"
+serde = { version = "1.0.210", features = ["derive"] }
