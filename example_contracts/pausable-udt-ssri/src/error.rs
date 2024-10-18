@@ -36,7 +36,8 @@ pub enum Error {
 
     NoPausePermission,
     NoUnpausePermission,
-    AbortedFromPause
+    AbortedFromPause,
+    IncompletePauseList,
 }
 
 impl From<SysError> for Error {
@@ -92,6 +93,7 @@ impl From<UDTPausableError> for Error {
             UDTPausableError::NoPausePermission => Self::NoPausePermission,
             UDTPausableError::NoUnpausePermission => Self::NoUnpausePermission,
             UDTPausableError::AbortedFromPause => Self::AbortedFromPause,
+            UDTPausableError::IncompletePauseList => Self::IncompletePauseList,
         }
     }
 }

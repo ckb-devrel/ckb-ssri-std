@@ -11,7 +11,6 @@
 - Script: If the code hash and args are both provided, the execution environment level is Script;
 - Cell: If the CellInput / Outpoint is provided, the execution environment level is Cell;
 - Transaction: If the Transaction Hash is provided, the execution environment level is Transaction; This is also the level of execution environment for regular CKB-VM when submitting transaction;
-- Chain: If the script is running on a SSRI-VM, the execution environment level is Chain; Methods with this level cannot be called within a transaction;
 
 ## Usage
 

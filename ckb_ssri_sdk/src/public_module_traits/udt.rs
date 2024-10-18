@@ -1,9 +1,9 @@
-use crate::SSRIError;
-use serde::{Serialize, Deserialize};
-
 pub trait UDT {
     fn balance() -> Result<u128, SSRIError>;
-    fn transfer(from: Script, to: Script, amount: u128) -> Result<(), SSRIError>;
+    fn transfer(
+        tx: Optional<RawTransaction>,
+        to: Vec<(Script, u128)>,
+    ) -> Result<RawTransaction, SSRIError>;
 }
 
 pub enum UDTError {
@@ -14,25 +14,21 @@ pub trait UDTMetadata: UDT {
     fn name() -> Result<Bytes, SSRIError>;
     fn symbol() -> Result<Bytes, SSRIError>;
     fn decimals() -> Result<u8, SSRIError>;
-    fn total_supply() -> Result<u128, SSRIError>;
-    fn cap() -> Result<u128, SSRIError>;
 }
+
 #[derive(Serialize, Deserialize)]
 pub struct UDTMetadataData {
     name: String,
     symbol: String,
     decimals: u8,
-    total_supply: u128,
-    cap: u128,
-    extension_data_registry: UDTExtensionDataRegistry
+    extension_data_registry: Vec<UDTExtensionDataRegistry>,
 }
 
+// Note: This type is kept generic on purpose for future extensions.
 #[derive(Serialize, Deserialize)]
 pub struct UDTExtensionDataRegistry {
-    #[serde(with = "dynvec_serde")]
-    extended_data: Vec<UDTExtendedData>,
-    #[serde(with = "dynvec_serde")]
-    pausable_data: Vec<UDTPausableData>,
+    registry_key: String,
+    data: Bytes,
 }
 
 pub enum UDTMetadataError {
@@ -45,20 +41,33 @@ pub enum UDTMetadataError {
 }
 
 pub trait UDTExtended: UDT + UDTMetadata {
-    fn balance_of(lock: Script) -> Result<u128, SSRIError>;
-    fn mint(lock: Script, amount: u128) -> Result<(), SSRIError>;
-    fn burn(lock: Script, amount: u128) -> Result<(), SSRIError>;
-    fn approve(spender: Script, amount: u128) -> Result<(), SSRIError>;
+    fn mint(
+        tx: Optional<RawTransaction>,
+        to: Vec<(Script, u128)>,
+    ) -> Result<RawTransaction, SSRIError>;
+    fn approve(
+        tx: Optional<RawTransaction>,
+        spender: Script,
+        amount: u128,
+    ) -> Result<(), SSRIError>;
     fn allowance(owner: Script, spender: Script) -> Result<u128, SSRIError>;
-    fn increase_allowance(spender: Script, added_value: u128) -> Result<(), SSRIError>;
-    fn decrease_allowance(spender: Script, subtracted_value: u128) -> Result<(), SSRIError>;
+    fn increase_allowance(
+        tx: Optional<RawTransaction>,
+        spender: Script,
+        added_value: u128,
+    ) -> Result<(), SSRIError>;
+    fn decrease_allowance(
+        tx: Optional<RawTransaction>,
+        spender: Script,
+        subtracted_value: u128,
+    ) -> Result<(), SSRIError>;
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct UDTExtendedData {
-}
+pub struct UDTExtendedData {}
 
 pub enum UDTExtendedError {
+    NoMintPermission,
     NoBurnPermission,
     NoApprovePermission,
     NoIncreaseAllowancePermission,
@@ -67,8 +76,12 @@ pub enum UDTExtendedError {
 
 pub trait UDTPausable: UDT + UDTMetadata {
     /* Note: Pausing/Unpause without lock would take effect on the global level */
-    fn pause(lock: Option<Script>) -> Result<(), SSRIError>;
-    fn unpause(lock: Option<Script>) -> Result<(), SSRIError>;
+    fn pause(tx: Optional<RawTransaction>, locks: Vec<Script>)
+        -> Result<RawTransaction, SSRIError>;
+    fn unpause(
+        tx: Optional<RawTransaction>,
+        locks: Vec<Script>,
+    ) -> Result<RawTransaction, SSRIError>;
     fn is_paused(locks: Vec<Script>) -> Result<bool, SSRIError>;
     fn enumerate_paused() -> Result<Vec<Script>, SSRIError>;
 }
@@ -83,9 +96,10 @@ pub enum UDTPausableError {
     NoPausePermission,
     NoUnpausePermission,
     AbortedFromPause,
-    IncompletePauseList
+    IncompletePauseList,
 }
 
-
-
-
+pub enum UDTExtensionDataRegistryRecords {
+    UDTPausableData = "UDTPausableData",
+    UDTExtendedData = "UDTExtendedData",
+}
