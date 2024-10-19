@@ -9,9 +9,9 @@ use ckb_std::ckb_types::packed::{Byte32, Script};
 use serde_molecule::{from_slice, to_vec};
 
 #[ssri_module]
-pub struct UDTSSRI;
+pub struct PausableUDT;
 
-impl UDT for UDTSSRI {
+impl UDT for PausableUDT {
     #[ssri_method(level = "cell")]
     fn balance() -> Result<u128, SSRIError> {
         Err(SSRIError::SSRIMethodsNotImplemented)
@@ -26,7 +26,7 @@ impl UDT for UDTSSRI {
 }
 
 #[ssri_module(base=UDT)]
-impl UDTMetadata for UDTSSRI {
+impl UDTMetadata for PausableUDT {
     /** Note: If the UDT is issued with a generic UDT Type and defines it's metadata in CellDep, it would require Chain level; if it is only compliant to the SSRI trait UDT and is able to return name/symbol/decimals within the script, and it would require only code/script level. */
     #[ssri_method(level = "code")]
     fn name() -> Result<Bytes, SSRIError> {
@@ -44,7 +44,7 @@ impl UDTMetadata for UDTSSRI {
 }
 
 #[ssri_module(base=UDT)]
-impl UDTExtended for UDTSSRI {
+impl UDTExtended for PausableUDT {
     #[ssri_method(level = "transaction", transaction = true)]
     fn mint(
         tx: Optional<RawTransaction>,
@@ -85,7 +85,7 @@ impl UDTExtended for UDTSSRI {
 }
 
 #[ssri_module(base=UDT)]
-impl UDTPausable for UDTSSRI {
+impl UDTPausable for PausableUDT {
     #[ssri_method(level = "transaction", transaction = true)]
     fn pause(
         tx: Optional<RawTransaction>,

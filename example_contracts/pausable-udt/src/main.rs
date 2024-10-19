@@ -38,5 +38,5 @@ const PAUSABLE_DATA: UDTPausableData = UDTPausableData {
 };
 
 pub fn program_entry() -> i8 {
-    ssri_entry!(fallback::fallback, [modules::UDTSSRI])
+    ssri_entry!(fallback::fallback, [modules::PausableUDT])
 }
