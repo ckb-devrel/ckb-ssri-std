@@ -1,3 +1,10 @@
+use crate::SSRIError;
+use ckb_std::ckb_types::{
+    bytes::Bytes,
+    packed::{RawTransaction, Script},
+};
+use serde::{Deserialize, Serialize};
+
 pub trait UDT {
     fn balance() -> Result<u128, SSRIError>;
     fn transfer(
@@ -5,7 +12,7 @@ pub trait UDT {
         to: Vec<(Script, u128)>,
     ) -> Result<RawTransaction, SSRIError>;
 }
-
+const UDT_LEN: usize = 16;
 pub enum UDTError {
     InsufficientBalance,
 }

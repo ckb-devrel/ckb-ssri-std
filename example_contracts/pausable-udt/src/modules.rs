@@ -7,6 +7,7 @@ use ckb_ssri_sdk::public_module_traits::{
 use ckb_ssri_sdk::{ssri_method, ssri_module};
 use ckb_std::ckb_types::packed::{Byte32, Script};
 use serde_molecule::{from_slice, to_vec};
+
 #[ssri_module]
 pub struct UDTSSRI;
 
@@ -16,8 +17,11 @@ impl UDT for UDTSSRI {
         Err(SSRIError::SSRIMethodsNotImplemented)
     }
     #[ssri_method(level = "transaction", transaction = true)]
-    fn transfer(from: Script, to: Script, amount: u128) -> Result<(), SSRIError> {
-        Err(SSRIError::SSRIMethodsNotImplemented)
+    fn transfer(
+        tx: Optional<RawTransaction>,
+        to: Vec<(Script, u128)>,
+    ) -> Result<RawTransaction, SSRIError> {
+        todo!()
     }
 }
 
@@ -42,9 +46,10 @@ impl UDTMetadata for UDTSSRI {
 #[ssri_module(base=UDT)]
 impl UDTExtended for UDTSSRI {
     #[ssri_method(level = "transaction", transaction = true)]
-    fn mint(lock: Script, amount: u128) -> Result<(), SSRIError> {
-        todo!()
-    }
+    fn mint(
+        tx: Optional<RawTransaction>,
+        to: Vec<(Script, u128)>,
+    ) -> Result<RawTransaction, SSRIError>;
 
     #[ssri_method(implemented = false)]
     fn approve(

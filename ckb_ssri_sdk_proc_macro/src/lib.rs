@@ -8,6 +8,46 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Parse, parse_macro_input, Expr, ExprLit, Ident, Lit, Token, Attribute};
 
+pub enum SSRIMethodLevel {
+    Code,
+    Script,
+    Cell,
+    Transaction,
+}
+
+
+pub struct SSRIMethodAttribute {
+    pub implemented: bool,
+    pub internal: bool,
+    pub transaction: bool,
+    pub level: SSRIMethodLevel
+}
+
+impl Default for SSRIMethodAttribute {
+    fn default() -> Self {
+        SSRIMethodAttribute {
+            implemented: true,
+            internal: false,
+            transaction: false,
+            level: SSRIMethodLevel::Code
+        }
+    }
+}
+
+pub struct SSRIModuleAttribute {
+    pub version: Option<String>,
+    pub base: Option<String>
+}
+
+impl Default for SSRIModuleAttribute {
+    fn default() -> Self {
+        SSRIModuleAttribute {
+            version: None,
+            base: None
+        }
+    }
+}
+
 fn get_ssri_method_attrs(attrs: &[Attribute]) -> Option<(Option<String>, Option<bool>)> {
     for attr in attrs {
         if attr.path.is_ident("ssri") {
@@ -16,8 +56,6 @@ fn get_ssri_method_attrs(attrs: &[Attribute]) -> Option<(Option<String>, Option<
             if let Meta::List(meta_list) = meta {
                 /* Internal: Not exposed */
                 let mut internal = None;
-                /* Query: Require SSRI_VM */
-                let mut query = None;
 
                 for nested_meta in meta_list.nested {
                     if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
@@ -58,7 +96,6 @@ fn get_ssri_method_attrs(attrs: &[Attribute]) -> Option<(Option<String>, Option<
 
 fn get_ssri_module_attrs(attr: &Option<Attribute>) -> Option<Option<String>, Option<String>> {
     let mut version = None;
-    let mut author = None;
 
     for nested_meta in attrs {
         if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
@@ -70,7 +107,6 @@ fn get_ssri_module_attrs(attr: &Option<Attribute>) -> Option<Option<String>, Opt
             let key = path.get_ident().unwrap().to_string();
             match key.as_str() {
                 "version" => version = Some(lit_str.value()),
-                "author" => author = Some(lit_str.value()),
                 _ => {}
             }
         }
@@ -85,7 +121,7 @@ pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as AttributeArgs);
 
     // Parse the module attributes (version, author, etc.)
-    let (version, author) = get_ssri_module_attrs(args);
+    let (version) = get_ssri_module_attrs(args);
 
     let mod_name = &input.ident; // Module name (used as namespace)
     let mut function_signatures = Vec::new();
