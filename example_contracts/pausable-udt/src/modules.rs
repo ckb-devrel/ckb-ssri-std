@@ -1,4 +1,4 @@
-use crate::{METADATA, PAUSABLE_DATA};
+use crate::{get_metadata, get_pausable_data};
 use alloc::vec;
 use alloc::vec::Vec;
 use ckb_ssri_sdk::public_module_traits::udt::{
@@ -17,11 +17,11 @@ pub struct PausableUDT;
 
 #[ssri_module]
 impl UDT for PausableUDT {
-    #[ssri_method(level = "cell")]
+    #[ssri_method(level = "Cell")]
     fn balance() -> Result<u128, SSRIError> {
         Err(SSRIError::SSRIMethodsNotImplemented)
     }
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn transfer(
         tx: Option<RawTransaction>,
         to: Vec<(Script, u128)>,
@@ -33,24 +33,24 @@ impl UDT for PausableUDT {
 #[ssri_module(base="UDT")]
 impl UDTMetadata for PausableUDT {
     /** Note: If the UDT is issued with a generic UDT Type and defines it's metadata in CellDep, it would require Chain level; if it is only compliant to the SSRI trait UDT and is able to return name/symbol/decimals within the script, and it would require only code/script level. */
-    #[ssri_method(level = "code")]
+    #[ssri_method(level = "Code")]
     fn name() -> Result<Bytes, SSRIError> {
-        return Ok(Bytes::from(METADATA.name.as_bytes()));
+        return Ok(Bytes::from(get_metadata().name.as_bytes()));
     }
-    #[ssri_method(level = "code")]
+    #[ssri_method(level = "Code")]
     fn symbol() -> Result<Bytes, SSRIError> {
-        return Ok(Bytes::from(METADATA.symbol.as_bytes()));
+        return Ok(Bytes::from(get_metadata().symbol.as_bytes()));
     }
-    #[ssri_method(level = "code")]
+    #[ssri_method(level = "Code")]
     /* Note: By default, decimals are 8 when decimals() are not implemented */
     fn decimals() -> Result<u8, SSRIError> {
-        return Ok(METADATA.decimals);
+        return Ok(get_metadata().decimals);
     }
 }
 
 #[ssri_module(base="UDT")]
 impl UDTExtended for PausableUDT {
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn mint(
         tx: Option<RawTransaction>,
         to: Vec<(Script, u128)>,
@@ -89,9 +89,9 @@ impl UDTExtended for PausableUDT {
     }
 }
 
-#[ssri_module(base=UDT)]
+#[ssri_module(base="UDT")]
 impl UDTPausable for PausableUDT {
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn pause(
         tx: Option<RawTransaction>,
         lock_hashes: &Vec<[u8; 32]>,
@@ -99,7 +99,7 @@ impl UDTPausable for PausableUDT {
         todo!()
     }
 
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn unpause(
         tx: Option<RawTransaction>,
         lock_hashes: &Vec<[u8; 32]>,
@@ -107,9 +107,9 @@ impl UDTPausable for PausableUDT {
         todo!()
     }
 
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, SSRIError> {
-        let mut current_pause_list: Option<&[u8; 32]> = Some(&PAUSABLE_DATA.pause_list);
+        let mut current_pause_list: Option<&[u8; 32]> = Some(&get_pausable_data().pause_list);
         while true {
             match current_pause_list {
                 Some(pause_list) => {
@@ -118,11 +118,11 @@ impl UDTPausable for PausableUDT {
                             return Ok(true);
                         }
                     }
-                    match PAUSABLE_DATA.next_type_hash {
+                    match get_pausable_data().next_type_hash {
                         Some(next_type_hash) => {
                             let mut index = 0;
                             while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
-                                if type_hash == next_type_hash {
+                                if type_hash == Some(next_type_hash) {
                                     let next_data =
                                         from_slice(load_cell_data(index, Source::CellDep), false);
                                     current_pause_list = Some(&next_data.pause_list);
@@ -141,16 +141,16 @@ impl UDTPausable for PausableUDT {
         }
     }
 
-    #[ssri_method(level = "transaction", transaction = true)]
+    #[ssri_method(level = "Transaction", transaction = true)]
     fn enumerate_paused() -> Result<Vec<[u8; 32]>, SSRIError> {
         let mut aggregated_paused_list: Vec<[u8; 32]> = vec![];
-        aggregated_paused_list.extend(&PAUSABLE_DATA.pause_list.clone());
+        aggregated_paused_list.extend(&get_pausable_data().pause_list.clone());
         while true {
-            match PAUSABLE_DATA.next_type_hash {
+            match get_pausable_data().next_type_hash {
                 Some(next_type_hash) => {
                     let mut index = 0;
                     while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
-                        if type_hash == next_type_hash {
+                        if type_hash == Some(next_type_hash) {
                             let next_data: UDTPausableData =
                                 from_slice(load_cell_data(index, Source::CellDep), false)?;
                                 aggregated_paused_list.extend(&next_data.pause_list);

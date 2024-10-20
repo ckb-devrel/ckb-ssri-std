@@ -148,9 +148,14 @@ pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemImpl);
 
     // Parse the attributes using `darling`'s `FromMeta` directly from the TokenStream
-    let ssri_module_attributes = match SSRIModuleAttributes::from_meta(&syn::parse_macro_input!(attr as syn::Meta)) {
-        Ok(attrs) => attrs,
-        Err(err) => return TokenStream::from(err.write_errors()),
+    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => { return TokenStream::from(Error::from(e).write_errors()); }
+    };
+
+    let ssri_module_attributes: SSRIModuleAttributes = match SSRIModuleAttributes::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => { return TokenStream::from(e.write_errors()); }
     };
 
 

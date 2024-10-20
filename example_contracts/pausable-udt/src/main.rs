@@ -14,7 +14,7 @@ ckb_std::entry!(program_entry);
 #[cfg(not(test))]
 default_alloc!();
 use ckb_ssri_sdk::{
-    public_module_traits::udt::{UDTMetadataData, UDTMetadataData, UDTPausableData},
+    public_module_traits::udt::{UDTMetadataData, UDTPausableData},
     ssri_entry, ssri_module,
 };
 
