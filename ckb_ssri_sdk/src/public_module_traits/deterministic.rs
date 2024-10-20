@@ -1,5 +1,7 @@
 use ckb_std::ckb_types::packed::{CellDep, CellInput, HeaderView, RawTransaction};
 
+use crate::SSRIError;
+
 pub trait Deterministic {
     type Recipe;
     fn get_output(

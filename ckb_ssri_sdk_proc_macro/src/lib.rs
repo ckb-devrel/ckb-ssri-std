@@ -1,259 +1,276 @@
+#![no_std]
+
+extern crate alloc;
 extern crate proc_macro;
 
 use core::panic;
 
 use ckb_hash::blake2b_256;
-use ckb_ssri::prelude::encode_u64_vector;
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Expr, ExprLit, Ident, Lit, Token, Attribute};
+use quote::{format_ident, quote};
+use syn::parse::ParseStream;
+use syn::{parse_macro_input, Attribute, ItemFn, ItemImpl, ItemStruct, Meta};
 
-pub enum SSRIMethodLevel {
+use darling::ast::NestedMeta;
+use darling::{Error, FromAttributes, FromMeta};
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
+use alloc::vec;
+use alloc::format;
+
+// Struct to hold method metadata for reflection and dispatch
+struct SSRIMethodMetadata {
+    method_name: String,
+    namespace: String,
+    level: SSRIMethodLevel,
+    transaction: bool,
+}
+
+#[derive(Debug)]
+enum SSRIMethodLevel {
     Code,
     Script,
     Cell,
     Transaction,
 }
 
-
-pub struct SSRIMethodAttribute {
-    pub implemented: bool,
-    pub internal: bool,
-    pub transaction: bool,
-    pub level: SSRIMethodLevel
+impl Default for SSRIMethodLevel {
+    fn default() -> Self {
+        SSRIMethodLevel::Code
+    }
 }
 
-impl Default for SSRIMethodAttribute {
+impl FromMeta for SSRIMethodLevel {
+    fn from_string(value: &str) -> Result<Self, darling::Error> {
+        match value {
+            "Code" => Ok(SSRIMethodLevel::Code),
+            "Script" => Ok(SSRIMethodLevel::Script),
+            "Cell" => Ok(SSRIMethodLevel::Cell),
+            "Transaction" => Ok(SSRIMethodLevel::Transaction),
+            _ => Err(darling::Error::unknown_value(value)),
+        }
+    }
+}
+
+impl quote::ToTokens for SSRIMethodLevel {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let level_str = match self {
+            SSRIMethodLevel::Code => "Code",
+            SSRIMethodLevel::Script => "Script",
+            SSRIMethodLevel::Cell => "Cell",
+            SSRIMethodLevel::Transaction => "Transaction",
+        };
+        tokens.extend(quote! { #level_str });
+    }
+}
+
+#[derive(Debug, FromAttributes)]
+#[darling(default, attributes(ssri_method))]
+struct SSRIMethodAttributes {
+    #[darling(default)]
+    pub implemented: bool,
+    #[darling(default)]
+    pub internal: bool,
+    #[darling(default)]
+    pub transaction: bool,
+    #[darling(default)]
+    pub level: SSRIMethodLevel,
+}
+
+impl Default for SSRIMethodAttributes {
     fn default() -> Self {
-        SSRIMethodAttribute {
+        SSRIMethodAttributes {
             implemented: true,
             internal: false,
             transaction: false,
-            level: SSRIMethodLevel::Code
+            level: SSRIMethodLevel::Code,
         }
     }
 }
 
-pub struct SSRIModuleAttribute {
-    pub version: Option<String>,
-    pub base: Option<String>
+#[derive(Debug, FromMeta)]
+#[darling(default)]
+struct SSRIModuleAttributes {
+    #[darling(default)]
+    pub version: String,
+
+    #[darling(default)]
+    pub base: Option<String>,
 }
 
-impl Default for SSRIModuleAttribute {
+impl Default for SSRIModuleAttributes {
     fn default() -> Self {
-        SSRIModuleAttribute {
-            version: None,
-            base: None
+        SSRIModuleAttributes {
+            version: (&"0").to_string(),
+            base: None,
         }
     }
 }
 
-fn get_ssri_method_attrs(attrs: &[Attribute]) -> Option<(Option<String>, Option<bool>)> {
-    for attr in attrs {
-        if attr.path.is_ident("ssri") {
-            // Parse the expose attribute parameters
-            let meta = attr.parse_meta().ok()?;
-            if let Meta::List(meta_list) = meta {
-                /* Internal: Not exposed */
-                let mut internal = None;
+#[derive(Debug)]
+enum SSRISDKProcMacroError {
+    InvalidMethodAttribute,
+    InvalidModuleAttribute,
+}
 
-                for nested_meta in meta_list.nested {
-                    if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-                        ref path,
-                        ref value,
-                        ..
-                    })) = nested_meta
-                    {
-                        // Handle the `rename` attribute
-                        if path.is_ident("internal") {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Bool(lit_bool),
-                                ..
-                            }) = value
-                            {
-                                internal = Some(lit_bool.value());
-                            }
-                        }
-                        // Handle the `conditional` attribute
-                        else if path.is_ident("conditional") {
-                            if let Expr::Lit(ExprLit {
-                                lit: Lit::Bool(lit_bool),
-                                ..
-                            }) = value
-                            {
-                                query = Some(lit_bool.value());
-                            }
-                        }
-                    }
-                }
-                return Some((internal, query));
-            }
-            return Some((None, None)); // No parameters, just `#[expose]`
+// Helper function to extract `Meta::List` items
+fn extract_meta_list(attr: &Attribute) -> Vec<NestedMeta> {
+    let mut attr_args = Vec::new();
+
+    // Use `parse_args_with` to parse the tokens
+    let _ = attr.parse_args_with(|input: syn::parse::ParseStream| {
+        while !input.is_empty() {
+            attr_args.push(input.parse()?);
+        }
+        Ok(())
+    });
+
+    attr_args
+}
+
+// Function to extract the trait name (used as the namespace if `base` is not provided)
+fn extract_trait_name(impl_block: &ItemImpl) -> Option<String> {
+    if let Some((_, path, _)) = &impl_block.trait_ {
+        if let Some(segment) = path.segments.last() {
+            return Some(segment.ident.to_string());
         }
     }
     None
 }
 
-fn get_ssri_module_attrs(attr: &Option<Attribute>) -> Option<Option<String>, Option<String>> {
-    let mut version = None;
-
-    for nested_meta in attrs {
-        if let NestedMeta::Meta(Meta::NameValue(MetaNameValue {
-            path,
-            value: Lit::Str(lit_str),
-            ..
-        })) = nested_meta
-        {
-            let key = path.get_ident().unwrap().to_string();
-            match key.as_str() {
-                "version" => version = Some(lit_str.value()),
-                _ => {}
-            }
-        }
-    }
-
-    (version, author)
+// Function to parse method-level attributes using `darling`
+fn parse_ssri_method_attributes(attrs: &[syn::Attribute]) -> Result<SSRIMethodAttributes, darling::Error> {
+    SSRIMethodAttributes::from_attributes(attrs)
 }
 
 #[proc_macro_attribute]
 pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemMod);
-    let args = parse_macro_input!(attr as AttributeArgs);
+    let input = parse_macro_input!(item as ItemImpl);
 
-    // Parse the module attributes (version, author, etc.)
-    let (version) = get_ssri_module_attrs(args);
+    // Parse the attributes using `darling`'s `FromMeta` directly from the TokenStream
+    let ssri_module_attributes = match SSRIModuleAttributes::from_meta(&syn::parse_macro_input!(attr as syn::Meta)) {
+        Ok(attrs) => attrs,
+        Err(err) => return TokenStream::from(err.write_errors()),
+    };
 
-    let mod_name = &input.ident; // Module name (used as namespace)
-    let mut function_signatures = Vec::new();
-    let mut dispatch_cases = Vec::new();
 
-    // Iterate over the items in the module (functions, etc.)
-    if let Some((_, items)) = &input.content {
-        for item in items {
-            if let syn::Item::Fn(function) = item {
-                // Check if the function has the #[expose] attribute and parse its parameters
-                if let Some((rename, conditional)) = get_ssri_method_attrs(&function.attrs) {
-                    // If conditional is set to false, skip this function
-                    if let Some(false) = conditional {
-                        continue;
-                    }
+    // Determine namespace based on `base` or fall back to the trait name
+    let namespace = match ssri_module_attributes.base {
+        Some(base) => base,
+        None => match extract_trait_name(&input) {
+            Some(trait_name) => trait_name,
+            None => return TokenStream::from(Error::custom("No trait name found").write_errors()),
+        },
+    };
 
-                    // Use the renamed function name for dispatch if provided
-                    let function_name = rename.unwrap_or_else(|| function.sig.ident.to_string());
+    let mut method_metadata = Vec::new();
 
-                    // Dynamically create argument identifiers (e.g., arg0, arg1, etc.)
-                    let param_idents: Vec<_> = function
-                        .sig
-                        .inputs
-                        .iter()
-                        .enumerate()
-                        .map(|(i, _)| format_ident!("arg{}", i))
-                        .collect();
+    // Collect methods annotated with #[ssri_method] and gather metadata
+    for item in &input.items {
+        if let syn::ImplItem::Fn(method) = item {
+            let method_name = method.sig.ident.to_string();
 
-                    // Collect parameters
-                    let params: Vec<String> = function
-                        .sig
-                        .inputs
-                        .iter()
-                        .map(|arg| match arg {
-                            syn::FnArg::Receiver(_) => "self".to_string(),
-                            syn::FnArg::Typed(pat_type) => {
-                                let ty = &pat_type.ty;
-                                quote!(#ty).to_string()
-                            }
-                        })
-                        .collect();
+            // Parse ssri_method attributes for this method
+            let ssri_method_attributes = match parse_ssri_method_attributes(&method.attrs) {
+                Ok(attrs) => attrs,
+                Err(err) => return TokenStream::from(err.write_errors()),
+            };
 
-                    // Get the return type
-                    let return_type = match &function.sig.output {
-                        syn::ReturnType::Default => "void".to_string(),
-                        syn::ReturnType::Type(_, ty) => quote!(#ty).to_string(),
-                    };
+            let level = ssri_method_attributes.level;
+            let transaction = ssri_method_attributes.transaction;
 
-                    // Create the signature string with metadata (version, author, etc.)
-                    let signature = if let Some(ref ver) = version {
-                        format!(
-                            "{}::{}::{}({}) -> {} [version: {}, author: {}]",
-                            mod_name,
-                            ver,
-                            function_name,
-                            params.join(", "),
-                            return_type,
-                            ver,
-                            author.clone().unwrap_or_else(|| "unknown".to_string())
-                        )
-                    } else {
-                        format!(
-                            "{}::{}({}) -> {} [author: {}]",
-                            mod_name,
-                            function_name,
-                            params.join(", "),
-                            return_type,
-                            author.clone().unwrap_or_else(|| "unknown".to_string())
-                        )
-                    };
-                    function_signatures.push(signature);
-
-                    // Generate the match case for dispatch
-                    let param_parsers: Vec<_> = function
-                        .sig
-                        .inputs
-                        .iter()
-                        .enumerate()
-                        .map(|(i, arg)| {
-                            match arg {
-                                syn::FnArg::Receiver(_) => quote!(), // No need to parse `self`
-                                syn::FnArg::Typed(pat_type) => {
-                                    let ty = &pat_type.ty;
-                                    let ident = &param_idents[i]; // Use the dynamically created identifier
-                                    quote! {
-                                        let #ident: #ty = args.get(#i)?.parse().ok()?;
-                                    }
-                                }
-                            }
-                        })
-                        .collect();
-
-                    let match_case = if let Some(ref ver) = version {
-                        quote! {
-                            concat!(stringify!(#mod_name), "::", #ver, "::", #function_name) => {
-                                #(#param_parsers)*
-                                Some(#function_ident(#(#param_idents),*).to_string())
-                            }
-                        }
-                    } else {
-                        quote! {
-                            concat!(stringify!(#mod_name), "::", #function_name) => {
-                                #(#param_parsers)*
-                                Some(#function_ident(#(#param_idents),*).to_string())
-                            }
-                        }
-                    };
-
-                    dispatch_cases.push(match_case);
-                }
-            }
+            method_metadata.push(SSRIMethodMetadata {
+                method_name,
+                namespace: namespace.clone(),
+                level,
+                transaction,
+            });
         }
     }
 
-    // Generate the dispatch function and the list of function signatures for this module
+    // Pass this metadata through the generated code so ssri_contract can collect it
+    let method_metadata_tokens = method_metadata.iter().map(|meta| {
+        let method_name = &meta.method_name;
+        let namespace = &meta.namespace;
+        let level = &meta.level;
+        let transaction = meta.transaction;
+
+        quote! {
+            SSRIMethodMetadata {
+                method_name: #method_name.to_string(),
+                namespace: #namespace.to_string(),
+                level: #level.to_string(),
+                transaction: #transaction,
+            }
+        }
+    });
+
     let expanded = quote! {
         #input
 
-        pub fn version() -> u8;
+        pub const SSRI_METHODS: &[SSRIMethodMetadata] = &[#(#method_metadata_tokens),*];
+    };
 
-        pub fn get_methods() -> Vec<&'static str> {
-            vec![#(#function_signatures),*]
-        }
+    TokenStream::from(expanded)
+}
 
-        pub fn has_methods(function_signatures) -> Vec<bool> {
-            todo!()
-        }
+#[proc_macro_attribute]
+pub fn ssri_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemStruct); // Parse the struct with ssri_contract
 
-        pub fn dispatch(namespace_and_function: &str, args: Vec<&str>) -> Option<String> {
-            match namespace_and_function {
-                #(#dispatch_cases,)*
-                _ => None
+    let struct_name = &input.ident;
+
+    // Collect all SSRI_METHODS from the ssri_module implementations
+    let method_collection_tokens = quote! {
+        let methods: &[&[SSRIMethodMetadata]] = &[SSRI_METHODS];
+    };
+
+    // Generate the dispatch logic dynamically based on the collected methods
+    let expanded = quote! {
+        #input
+
+        impl #struct_name {
+            pub fn version() -> u8 {
+                0
+            }
+
+            pub fn get_methods() -> Vec<&'static str> {
+                #method_collection_tokens
+
+                let mut method_names = Vec::new();
+                for methods_in_module in methods.iter() {
+                    for method in *methods_in_module {
+                        method_names.push(method.method_name);
+                    }
+                }
+                method_names
+            }
+
+            pub fn has_methods(function_signatures: Vec<&str>) -> Vec<bool> {
+                #method_collection_tokens
+
+                function_signatures.iter().map(|f| {
+                    methods.iter().any(|methods_in_module| {
+                        methods_in_module.iter().any(|method| {
+                            *f == method.method_name
+                        })
+                    })
+                }).collect()
+            }
+
+            pub fn dispatch(namespace_and_function: &str, args: Vec<&str>) -> Option<String> {
+                #method_collection_tokens
+
+                for methods_in_module in methods.iter() {
+                    for method in *methods_in_module {
+                        let full_method_name = format!("{}.{}", method.namespace, method.method_name);
+                        if full_method_name == namespace_and_function {
+                            // Implement the actual logic to call the correct method here
+                            return Some(full_method_name); // Replace with actual dispatch call
+                        }
+                    }
+                }
+                None
             }
         }
     };

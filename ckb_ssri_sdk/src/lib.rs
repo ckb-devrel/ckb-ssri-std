@@ -4,9 +4,9 @@ use core::panic;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Attribute, ItemMod, Lit, Meta, MetaNameValue, NestedMeta};
-pub use ckb_ssri_sdk_proc_macro::ssri_entry;
+use syn::{parse_macro_input, Attribute, ItemMod, Lit, Meta, MetaNameValue};
 pub mod public_module_traits;
+pub use ckb_ssri_sdk_proc_macro::{ssri_contract, ssri_module};
 
 macro_rules! ssri_entry {
     ( $( $module:path ),* $(,)? ) => {
@@ -36,8 +36,6 @@ macro_rules! ssri_entry {
             )*
             methods
         }
-
-        pub fn 
     };
 }
 

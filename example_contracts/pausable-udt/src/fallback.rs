@@ -1,12 +1,16 @@
 use crate::{
     error::Error,
-    modules::UDTSSRI,
+    modules::PausableUDT,
     utils::{check_owner_mode, collect_inputs_amount, collect_outputs_amount},
 };
 
 use alloc::vec;
 use alloc::vec::Vec;
-use ckb_std::high_level::{load_cell_lock_hash, load_script};
+use ckb_std::{
+    ckb_constants::Source,
+    ckb_types::{bytes::Bytes, prelude::*},
+    high_level::{load_cell_lock_hash, load_script},
+};
 
 pub fn fallback() -> Result<(), Error> {
     let script = load_script()?;
@@ -28,7 +32,7 @@ pub fn fallback() -> Result<(), Error> {
         index += 1;
     }
 
-    if UDTSSRI::is_paused(&lock_hashes)? {
+    if PausableUDT::is_paused(&lock_hashes)? {
         return Err(Error::AbortedFromPause);
     }
 

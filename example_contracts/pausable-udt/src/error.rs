@@ -1,6 +1,6 @@
 use ckb_std::error::SysError;
 use ckb_ssri_sdk::SSRIError;
-use ckb_ssri_sdk::public_module_traits::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
+use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
 
 /// Error
 #[repr(i8)]
@@ -17,6 +17,7 @@ pub enum Error {
     SSRIMethodsNotFound,
     SSRIMethodsArgsInvalid,
     SSRIMethodsNotImplemented,
+    SSRIMethodRequireHigherLevel,
 
     InsufficientBalance,
 
@@ -62,6 +63,7 @@ impl From<SSRIError> for Error {
             SSRIError::SSRIMethodsNotFound => Self::SSRIMethodsArgsInvalid,
             SSRIError::SSRIMethodsArgsInvalid => Self::SSRIMethodsNotImplemented,
             SSRIError::SSRIMethodsNotImplemented => Self::SSRIMethodsNotImplemented,
+            SSRIError::SSRIMethodRequireHigherLevel => Self::SSRIMethodRequireHigherLevel,
         }
     }
 }
