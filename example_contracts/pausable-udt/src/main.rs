@@ -44,5 +44,10 @@ pub fn get_pausable_data() -> UDTPausableData {
 }
 
 pub fn program_entry() -> i8 {
-    ssri_entry!(fallback::fallback, [modules::PausableUDT])
+    match fallback::fallback() {
+        Ok(_) => 0,
+        Err(err) => err as i8,
+    }
+
+    // ssri_entry!(fallback::fallback, [modules::PausableUDT])
 }
