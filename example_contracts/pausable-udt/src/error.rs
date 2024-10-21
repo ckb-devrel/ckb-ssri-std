@@ -162,8 +162,6 @@ impl From<UDTMetadataError> for Error {
             UDTMetadataError::NameUndefined => Self::NameUndefined,
             UDTMetadataError::SymbolUndefined => Self::SymbolUndefined,
             UDTMetadataError::DecimalsUndefined => Self::DecimalsUndefined,
-            UDTMetadataError::TotalSupplyUndefined => Self::TotalSupplyUndefined,
-            UDTMetadataError::CapUndefined => Self::CapUndefined,
             UDTMetadataError::ExtensionDataNotFound => Self::ExtensionDataNotFound,
         }
     }

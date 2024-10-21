@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 use ckb_ssri_sdk::public_module_traits::udt::{
     UDTExtended, UDTMetadata, UDTPausable, UDTPausableData, UDT,
 };
-use ckb_ssri_sdk::{ssri_contract, ssri_module, Error};
+use ckb_ssri_sdk::{ssri_contract, ssri_module};
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
 use ckb_std::ckb_types::packed::{Byte32, RawTransaction, Script};

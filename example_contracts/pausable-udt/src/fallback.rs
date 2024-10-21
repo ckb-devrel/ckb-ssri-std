@@ -12,6 +12,8 @@ use ckb_std::{
     high_level::{load_cell_lock_hash, load_script},
 };
 
+use ckb_ssri_sdk::public_module_traits::udt::UDTPausable;
+
 pub fn fallback() -> Result<(), Error> {
     let script = load_script()?;
     let args: Bytes = script.args().unpack();
@@ -20,7 +22,7 @@ pub fn fallback() -> Result<(), Error> {
         return Ok(());
     }
 
-    let lock_hashes: Vec<[u8; 32]> = vec![];
+    let mut lock_hashes: Vec<[u8; 32]> = vec![];
     let mut index = 0;
     while let Ok(lock_hash) = load_cell_lock_hash(index, Source::Input) {
         lock_hashes.push(lock_hash);
