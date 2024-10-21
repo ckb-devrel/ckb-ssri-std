@@ -51,6 +51,17 @@ impl UDTMetadata for PausableUDT {
         let metadata = get_metadata();
         Ok(metadata.decimals)
     }
+
+    #[ssri_method(level = "Code")]
+    fn get_extension_data(registry_key: String) -> Result<Bytes, Error> {
+        let metadata = get_metadata();
+        for extension_data in metadata.extension_data_registry {
+            if extension_data.registry_key == registry_key {
+                return Ok(extension_data.data);
+            }
+        }
+        Err(Error::ExtensionDataNotFound)
+    }
 }
 
 #[ssri_module(base = "UDT")]

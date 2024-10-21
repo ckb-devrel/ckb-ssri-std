@@ -21,6 +21,7 @@ pub trait UDTMetadata: UDT {
     fn name() -> Result<Bytes, Self::Error>;
     fn symbol() -> Result<Bytes, Self::Error>;
     fn decimals() -> Result<u8, Self::Error>;
+    fn get_extension_data(registry_key: String) -> Result<Bytes, Self::Error>;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -42,8 +43,6 @@ pub enum UDTMetadataError {
     NameUndefined,
     SymbolUndefined,
     DecimalsUndefined,
-    TotalSupplyUndefined,
-    CapUndefined,
     ExtensionDataNotFound,
 }
 
