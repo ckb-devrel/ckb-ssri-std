@@ -6,24 +6,23 @@ extern crate proc_macro;
 use core::panic;
 
 use ckb_hash::blake2b_256;
-use proc_macro::TokenStream;
+use proc_macro::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::parse::ParseStream;
-use syn::{parse_macro_input, Attribute, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{parse_macro_input, Attribute, ImplItem, ItemFn, ItemImpl, ItemStruct, Meta};
 
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec;
+use alloc::vec::Vec;
 use darling::ast::NestedMeta;
 use darling::{Error, FromAttributes, FromMeta};
-use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::vec;
-use alloc::format;
 
 // Struct to hold method metadata for reflection and dispatch
 struct SSRIMethodMetadata {
-    method_name: String,
-    namespace: String,
-    level: SSRIMethodLevel,
-    transaction: bool,
+    pub method_name: String,
+    pub namespace: String,
+    pub method_attributes: SSRIMethodAttributes,
 }
 
 #[derive(Debug)]
@@ -64,8 +63,8 @@ impl quote::ToTokens for SSRIMethodLevel {
     }
 }
 
-#[derive(Debug, FromAttributes)]
-#[darling(default, attributes(ssri_method))]
+#[derive(Debug, FromMeta)]
+#[darling(default)]
 struct SSRIMethodAttributes {
     #[darling(default)]
     pub implemented: bool,
@@ -93,7 +92,6 @@ impl Default for SSRIMethodAttributes {
 struct SSRIModuleAttributes {
     #[darling(default)]
     pub version: String,
-
     #[darling(default)]
     pub base: Option<String>,
 }
@@ -111,36 +109,58 @@ impl Default for SSRIModuleAttributes {
 enum SSRISDKProcMacroError {
     InvalidMethodAttribute,
     InvalidModuleAttribute,
-}
-
-// Helper function to extract `Meta::List` items
-fn extract_meta_list(attr: &Attribute) -> Vec<NestedMeta> {
-    let mut attr_args = Vec::new();
-
-    // Use `parse_args_with` to parse the tokens
-    let _ = attr.parse_args_with(|input: syn::parse::ParseStream| {
-        while !input.is_empty() {
-            attr_args.push(input.parse()?);
-        }
-        Ok(())
-    });
-
-    attr_args
+    InvalidTraitName
 }
 
 // Function to extract the trait name (used as the namespace if `base` is not provided)
-fn extract_trait_name(impl_block: &ItemImpl) -> Option<String> {
+fn extract_trait_name(impl_block: &ItemImpl) -> Result<String, SSRISDKProcMacroError> {
     if let Some((_, path, _)) = &impl_block.trait_ {
         if let Some(segment) = path.segments.last() {
-            return Some(segment.ident.to_string());
+            return Ok(segment.ident.to_string());
         }
     }
-    None
+    Err(SSRISDKProcMacroError::InvalidTraitName)
 }
 
-// Function to parse method-level attributes using `darling`
-fn parse_ssri_method_attributes(attrs: &[syn::Attribute]) -> Result<SSRIMethodAttributes, darling::Error> {
-    SSRIMethodAttributes::from_attributes(attrs)
+#[proc_macro_attribute]
+pub fn ssri_method(attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the method attributes using darling (SSRIMethodAttributes)
+    let method_args = match NestedMeta::parse_meta_list(attr.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
+    };
+
+    let ssri_method_attributes: SSRIMethodAttributes =
+        match SSRIMethodAttributes::from_list(&method_args) {
+            Ok(v) => v,
+            Err(e) => {
+                return TokenStream::from(e.write_errors());
+            }
+        };
+    // Modify the method (e.g., add logging, check level, etc.)
+    let method = parse_macro_input!(item as ItemFn);
+
+    let method_metadata_const_name = format_ident!("__SSRIMETHOD_METADATA_{}", method.sig.ident);
+
+    // Create a metadata struct to represent the parsed attributes
+    let generated_method_metadata = quote! {
+        const #method_metadata_const_name: SSRIMethodMetadata = SSRIMethodMetadata {
+            namespace: "", // This will be set in ssri_module
+            method_name: #method.sig.ident.to_string(),
+            method_attributes: ssri_method_attributes
+        };
+    };
+
+    // Return the method and the constant metadata
+    let expanded = quote! {
+        #method
+        #generated_method_metadata
+    };
+
+    // Return the modified method as a TokenStream
+    TokenStream::from(expanded)
 }
 
 #[proc_macro_attribute]
@@ -150,70 +170,59 @@ pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the attributes using `darling`'s `FromMeta` directly from the TokenStream
     let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
         Ok(v) => v,
-        Err(e) => { return TokenStream::from(Error::from(e).write_errors()); }
+        Err(e) => {
+            return TokenStream::from(Error::from(e).write_errors());
+        }
     };
 
-    let ssri_module_attributes: SSRIModuleAttributes = match SSRIModuleAttributes::from_list(&attr_args) {
-        Ok(v) => v,
-        Err(e) => { return TokenStream::from(e.write_errors()); }
-    };
+    let ssri_module_attributes: SSRIModuleAttributes =
+        match SSRIModuleAttributes::from_list(&attr_args) {
+            Ok(v) => v,
+            Err(e) => {
+                return TokenStream::from(e.write_errors());
+            }
+        };
 
+    let trait_name = extract_trait_name(&input);
 
+    
     // Determine namespace based on `base` or fall back to the trait name
     let namespace = match ssri_module_attributes.base {
         Some(base) => base,
-        None => match extract_trait_name(&input) {
+        None => match trait_name {
             Some(trait_name) => trait_name,
             None => return TokenStream::from(Error::custom("No trait name found").write_errors()),
         },
     };
+    
+    let module_metadata = Vec::new();
 
-    let mut method_metadata = Vec::new();
+    let module_metadata_const_name = format_ident!("__SSRIMODULE_METADATA_{}", trait_name);
 
-    // Collect methods annotated with #[ssri_method] and gather metadata
-    for item in &input.items {
-        if let syn::ImplItem::Fn(method) = item {
-            let method_name = method.sig.ident.to_string();
 
-            // Parse ssri_method attributes for this method
-            let ssri_method_attributes = match parse_ssri_method_attributes(&method.attrs) {
-                Ok(attrs) => attrs,
-                Err(err) => return TokenStream::from(err.write_errors()),
-            };
+    for item in &impl_block.items {
+        if let ImplItem::Const(const_item) = item {
+            // We found a const generated by #[ssri_method]
+            let const_ident = &const_item.ident;
 
-            let level = ssri_method_attributes.level;
-            let transaction = ssri_method_attributes.transaction;
-
-            method_metadata.push(SSRIMethodMetadata {
-                method_name,
-                namespace: namespace.clone(),
-                level,
-                transaction,
+            // Add the const to the metadata collection and fill in the namespace
+            module_metadata.push(quote! {
+                SSRIMethodMetadata {
+                    namespace: #namespace,
+                    ..#const_ident
+                }
             });
         }
     }
 
-    // Pass this metadata through the generated code so ssri_contract can collect it
-    let method_metadata_tokens = method_metadata.iter().map(|meta| {
-        let method_name = &meta.method_name;
-        let namespace = &meta.namespace;
-        let level = &meta.level;
-        let transaction = meta.transaction;
+    let generated_module_metadata = quote! {
+        const #module_metadata_const_name: &[SSRIMethodMetadata] = &[#(#module_metadata),*];
+    };
 
-        quote! {
-            SSRIMethodMetadata {
-                method_name: #method_name.to_string(),
-                namespace: #namespace.to_string(),
-                level: #level.to_string(),
-                transaction: #transaction,
-            }
-        }
-    });
 
     let expanded = quote! {
         #input
-
-        pub const SSRI_METHODS: &[SSRIMethodMetadata] = &[#(#method_metadata_tokens),*];
+        #generated_module_metadata
     };
 
     TokenStream::from(expanded)
