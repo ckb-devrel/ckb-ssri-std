@@ -6,100 +6,99 @@ use alloc::vec::Vec;
 use ckb_ssri_sdk::public_module_traits::udt::{
     UDTExtended, UDTMetadata, UDTPausable, UDTPausableData, UDT,
 };
-use ckb_ssri_sdk::{ssri_contract, ssri_module};
+// use ckb_ssri_sdk_proc_macro::{ssri_method, ssri_module};
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
-use ckb_std::ckb_types::packed::{Byte32, RawTransaction, Script};
+use ckb_std::ckb_types::packed::{Byte32, Transaction, Script};
 use ckb_std::high_level::{load_cell_data, load_cell_type_hash};
 use serde_molecule::{from_slice, to_vec};
 
-#[ssri_contract]
 pub struct PausableUDT;
 
-#[ssri_module]
+// #[ssri_module]
 impl UDT for PausableUDT {
     type Error = Error;
-    #[ssri_method(level = "Cell")]
+    // #[ssri_method(level = "Cell")]
     fn balance() -> Result<u128, Error> {
         Err(Error::SSRIMethodsNotImplemented)
     }
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn transfer(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         to: Vec<(Script, u128)>,
-    ) -> Result<RawTransaction, Error> {
+    ) -> Result<Transaction, Error> {
         todo!()
     }
 }
 
-#[ssri_module(base = "UDT")]
+// #[ssri_module(base = "UDT")]
 impl UDTMetadata for PausableUDT {
     /** Note: If the UDT is issued with a generic UDT Type and defines it's metadata in CellDep, it would require Chain level; if it is only compliant to the SSRI trait UDT and is able to return name/symbol/decimals within the script, and it would require only code/script level. */
-    #[ssri_method(level = "Code")]
+    // #[ssri_method(level = "Code")]
     fn name() -> Result<Bytes, Error> {
         let metadata = get_metadata();
-        Ok(Bytes::copy_from_slice(metadata.name.as_bytes()))
+        Ok(Bytes::from(metadata.name.as_bytes()))
     }
-    #[ssri_method(level = "Code")]
+    // #[ssri_method(level = "Code")]
     fn symbol() -> Result<Bytes, Error> {
         let metadata = get_metadata();
-        Ok(Bytes::copy_from_slice(metadata.symbol.as_bytes()))
+        Ok(Bytes::from(metadata.symbol.as_bytes()))
     }
-    #[ssri_method(level = "Code")]
+    // #[ssri_method(level = "Code")]
     /* Note: By default, decimals are 8 when decimals() are not implemented */
     fn decimals() -> Result<u8, Error> {
         let metadata = get_metadata();
         Ok(metadata.decimals)
     }
 
-    #[ssri_method(level = "Code")]
+    // #[ssri_method(level = "Code")]
     fn get_extension_data(registry_key: String) -> Result<Bytes, Error> {
         let metadata = get_metadata();
         for extension_data in metadata.extension_data_registry {
             if extension_data.registry_key == registry_key {
-                return Ok(extension_data.data);
+                return Ok(Bytes::from(extension_data.data));
             }
         }
         Err(Error::ExtensionDataNotFound)
     }
 }
 
-#[ssri_module(base = "UDT")]
+// #[ssri_module(base = "UDT")]
 impl UDTExtended for PausableUDT {
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn mint(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         to: Vec<(Script, u128)>,
-    ) -> Result<RawTransaction, Error> {
+    ) -> Result<Transaction, Error> {
         todo!()
     }
 
-    #[ssri_method(implemented = false)]
+    // #[ssri_method(implemented = false)]
     fn approve(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         spender_lock_hash: [u8; 32],
         amount: u128,
     ) -> Result<(), Error> {
         Err(Error::SSRIMethodsNotImplemented)
     }
 
-    #[ssri_method(implemented = false)]
+    // #[ssri_method(implemented = false)]
     fn allowance(owner: Script, spender_lock_hash: [u8; 32]) -> Result<u128, Error> {
         Err(Error::SSRIMethodsNotImplemented)
     }
 
-    #[ssri_method(implemented = false)]
+    // #[ssri_method(implemented = false)]
     fn increase_allowance(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         spender_lock_hash: [u8; 32],
         added_value: u128,
     ) -> Result<(), Error> {
         Err(Error::SSRIMethodsNotImplemented)
     }
 
-    #[ssri_method(implemented = false)]
+    // #[ssri_method(implemented = false)]
     fn decrease_allowance(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         spender_lock_hash: [u8; 32],
         subtracted_value: u128,
     ) -> Result<(), Error> {
@@ -107,25 +106,25 @@ impl UDTExtended for PausableUDT {
     }
 }
 
-#[ssri_module(base = "UDT")]
+// #[ssri_module(base = "UDT")]
 impl UDTPausable for PausableUDT {
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn pause(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         lock_hashes: &Vec<[u8; 32]>,
-    ) -> Result<RawTransaction, Error> {
+    ) -> Result<Transaction, Error> {
         todo!()
     }
 
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn unpause(
-        tx: Option<RawTransaction>,
+        tx: Option<Transaction>,
         lock_hashes: &Vec<[u8; 32]>,
-    ) -> Result<RawTransaction, Error> {
+    ) -> Result<Transaction, Error> {
         todo!()
     }
 
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Error> {
         let mut current_pause_list = Some(get_pausable_data().pause_list.clone()); // Start with an owned copy of the pause list
         
@@ -160,7 +159,7 @@ impl UDTPausable for PausableUDT {
         Ok(false)
     }
 
-    #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "Transaction", transaction = true)]
     fn enumerate_paused() -> Result<Vec<[u8; 32]>, Error> {
         let mut aggregated_paused_list: Vec<[u8; 32]> = vec![];
         aggregated_paused_list.extend(&get_pausable_data().pause_list.clone());

@@ -55,6 +55,9 @@ pub enum Error {
     InvalidTableCount,
     /// Indicates that non-fixed size fields are not allowed in a molecule struct, e.g., `Option`, `Vec`, `DynVec`, `enum`.
     MixTableAndStruct,
+    InvalidChar,
+
+    // * UDT Error
     InsufficientBalance,
 
     // * UDT Metadata Error
@@ -133,6 +136,7 @@ impl From<serde_molecule::Error> for Error {
             InvalidTableCount => Self::InvalidTableCount,
             /// Indicates that non-fixed size fields are not allowed in a molecule struct, e.g., `Option`, `Vec`, `DynVec`, `enum`.
             MixTableAndStruct => Self::MixTableAndStruct,
+            InvalidChar => Self::InvalidChar,
         }
     }
 }

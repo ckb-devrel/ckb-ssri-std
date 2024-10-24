@@ -3,20 +3,20 @@
 
 #[cfg(test)]
 extern crate alloc;
-use alloc::{borrow::Cow, string::ToString};
-use alloc::vec;
-use alloc::vec::Vec;
-use alloc::string::String;
+
 #[cfg(not(test))]
 use ckb_std::default_alloc;
 #[cfg(not(test))]
 ckb_std::entry!(program_entry);
 #[cfg(not(test))]
 default_alloc!();
-use ckb_ssri_sdk::{
-    public_module_traits::udt::{UDTMetadataData, UDTPausableData},
-    ssri_entry, ssri_module,
-};
+
+
+use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataData, UDTPausableData};
+
+use alloc::vec;
+use alloc::vec::Vec;
+use alloc::string::String;
 
 mod error;
 mod fallback;

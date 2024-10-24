@@ -6,22 +6,24 @@ extern crate proc_macro;
 use core::panic;
 
 use ckb_hash::blake2b_256;
-use proc_macro::{Ident, TokenStream};
+use ckb_ssri_sdk::prelude::encode_u64_vector;
+use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::parse::ParseStream;
-use syn::{parse_macro_input, Attribute, ImplItem, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{
+    parse::Parse, parse_macro_input, Expr, ExprLit, Ident, ImplItem, ItemFn, ItemImpl, Lit, Meta,
+    Token,
+};
 
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use darling::ast::NestedMeta;
-use darling::{Error, FromAttributes, FromMeta};
 
 // Struct to hold method metadata for reflection and dispatch
 struct SSRIMethodMetadata {
     pub method_name: String,
     pub namespace: String,
+    pub method_signature: String,
     pub method_attributes: SSRIMethodAttributes,
 }
 
@@ -39,40 +41,11 @@ impl Default for SSRIMethodLevel {
     }
 }
 
-impl FromMeta for SSRIMethodLevel {
-    fn from_string(value: &str) -> Result<Self, darling::Error> {
-        match value {
-            "Code" => Ok(SSRIMethodLevel::Code),
-            "Script" => Ok(SSRIMethodLevel::Script),
-            "Cell" => Ok(SSRIMethodLevel::Cell),
-            "Transaction" => Ok(SSRIMethodLevel::Transaction),
-            _ => Err(darling::Error::unknown_value(value)),
-        }
-    }
-}
-
-impl quote::ToTokens for SSRIMethodLevel {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let level_str = match self {
-            SSRIMethodLevel::Code => "Code",
-            SSRIMethodLevel::Script => "Script",
-            SSRIMethodLevel::Cell => "Cell",
-            SSRIMethodLevel::Transaction => "Transaction",
-        };
-        tokens.extend(quote! { #level_str });
-    }
-}
-
-#[derive(Debug, FromMeta)]
-#[darling(default)]
+#[derive(Debug)]
 struct SSRIMethodAttributes {
-    #[darling(default)]
     pub implemented: bool,
-    #[darling(default)]
     pub internal: bool,
-    #[darling(default)]
     pub transaction: bool,
-    #[darling(default)]
     pub level: SSRIMethodLevel,
 }
 
@@ -87,12 +60,15 @@ impl Default for SSRIMethodAttributes {
     }
 }
 
-#[derive(Debug, FromMeta)]
-#[darling(default)]
+impl Parse for SSRIMethodAttributes {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
 struct SSRIModuleAttributes {
-    #[darling(default)]
     pub version: String,
-    #[darling(default)]
     pub base: Option<String>,
 }
 
@@ -105,11 +81,17 @@ impl Default for SSRIModuleAttributes {
     }
 }
 
+impl Parse for SSRIModuleAttributes {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        todo!()
+    }
+}
+
 #[derive(Debug)]
 enum SSRISDKProcMacroError {
     InvalidMethodAttribute,
     InvalidModuleAttribute,
-    InvalidTraitName
+    InvalidTraitName,
 }
 
 // Function to extract the trait name (used as the namespace if `base` is not provided)
@@ -124,22 +106,8 @@ fn extract_trait_name(impl_block: &ItemImpl) -> Result<String, SSRISDKProcMacroE
 
 #[proc_macro_attribute]
 pub fn ssri_method(attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse the method attributes using darling (SSRIMethodAttributes)
-    let method_args = match NestedMeta::parse_meta_list(attr.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(Error::from(e).write_errors());
-        }
-    };
+    let method_args = parse_macro_input!(attr as SSRIMethodAttributes);
 
-    let ssri_method_attributes: SSRIMethodAttributes =
-        match SSRIMethodAttributes::from_list(&method_args) {
-            Ok(v) => v,
-            Err(e) => {
-                return TokenStream::from(e.write_errors());
-            }
-        };
-    // Modify the method (e.g., add logging, check level, etc.)
     let method = parse_macro_input!(item as ItemFn);
 
     let method_metadata_const_name = format_ident!("__SSRIMETHOD_METADATA_{}", method.sig.ident);
@@ -149,6 +117,7 @@ pub fn ssri_method(attr: TokenStream, item: TokenStream) -> TokenStream {
         const #method_metadata_const_name: SSRIMethodMetadata = SSRIMethodMetadata {
             namespace: "", // This will be set in ssri_module
             method_name: #method.sig.ident.to_string(),
+            method_signature: #method.sig.to_string(),
             method_attributes: ssri_method_attributes
         };
     };
@@ -156,7 +125,7 @@ pub fn ssri_method(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Return the method and the constant metadata
     let expanded = quote! {
         #method
-        #generated_method_metadata
+        // #generated_method_metadata
     };
 
     // Return the modified method as a TokenStream
@@ -167,40 +136,21 @@ pub fn ssri_method(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemImpl);
 
-    // Parse the attributes using `darling`'s `FromMeta` directly from the TokenStream
-    let attr_args = match NestedMeta::parse_meta_list(attr.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(Error::from(e).write_errors());
-        }
-    };
+    let ssri_module_attributes = parse_macro_input!(attr as SSRIModuleAttributes);
 
-    let ssri_module_attributes: SSRIModuleAttributes =
-        match SSRIModuleAttributes::from_list(&attr_args) {
-            Ok(v) => v,
-            Err(e) => {
-                return TokenStream::from(e.write_errors());
-            }
-        };
+    let trait_name = extract_trait_name(&input).unwrap();
 
-    let trait_name = extract_trait_name(&input);
-
-    
     // Determine namespace based on `base` or fall back to the trait name
     let namespace = match ssri_module_attributes.base {
         Some(base) => base,
-        None => match trait_name {
-            Some(trait_name) => trait_name,
-            None => return TokenStream::from(Error::custom("No trait name found").write_errors()),
-        },
+        None => trait_name.clone(),
     };
-    
-    let module_metadata = Vec::new();
+
+    let mut module_metadata = Vec::new();
 
     let module_metadata_const_name = format_ident!("__SSRIMODULE_METADATA_{}", trait_name);
 
-
-    for item in &impl_block.items {
+    for item in &input.items {
         if let ImplItem::Const(const_item) = item {
             // We found a const generated by #[ssri_method]
             let const_ident = &const_item.ident;
@@ -219,75 +169,133 @@ pub fn ssri_module(attr: TokenStream, item: TokenStream) -> TokenStream {
         const #module_metadata_const_name: &[SSRIMethodMetadata] = &[#(#module_metadata),*];
     };
 
-
     let expanded = quote! {
         #input
-        #generated_module_metadata
+        // #generated_module_metadata
     };
 
     TokenStream::from(expanded)
 }
 
-#[proc_macro_attribute]
-pub fn ssri_contract(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemStruct); // Parse the struct with ssri_contract
+fn method_path(name: impl AsRef<[u8]>) -> u64 {
+    u64::from_le_bytes(blake2b_256(name)[0..8].try_into().unwrap())
+}
 
-    let struct_name = &input.ident;
+struct Methods {
+    argv: Expr,
+    invalid_method: Expr,
+    invalid_args: Expr,
+    method_keys: Vec<u64>,
+    method_bodies: Vec<Expr>,
+}
 
-    // Collect all SSRI_METHODS from the ssri_module implementations
-    let method_collection_tokens = quote! {
-        let methods: &[&[SSRIMethodMetadata]] = &[SSRI_METHODS];
-    };
+impl Parse for Methods {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        input.parse::<Ident>()?;
+        input.parse::<Token![:]>()?;
+        let argv = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
+        input.parse::<Ident>()?;
+        input.parse::<Token![:]>()?;
+        let invalid_method = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
+        input.parse::<Ident>()?;
+        input.parse::<Token![:]>()?;
+        let invalid_args = input.parse::<Expr>()?;
+        input.parse::<Token![,]>()?;
 
-    // Generate the dispatch logic dynamically based on the collected methods
-    let expanded = quote! {
-        #input
+        let mut method_keys = vec![];
+        let mut method_bodies = vec![];
+        while !input.is_empty() {
+            let name = match input.parse::<Expr>()? {
+                Expr::Lit(ExprLit {
+                    lit: Lit::Str(v), ..
+                }) => v.value(),
+                _ => panic!("method name should be a string"),
+            };
+            input.parse::<Token![=>]>()?;
+            let body = input.parse::<Expr>()?;
+            input.parse::<Token![,]>()?;
 
-        impl #struct_name {
-            pub fn version() -> u8 {
-                0
-            }
-
-            pub fn get_methods() -> Vec<&'static str> {
-                #method_collection_tokens
-
-                let mut method_names = Vec::new();
-                for methods_in_module in methods.iter() {
-                    for method in *methods_in_module {
-                        method_names.push(method.method_name);
-                    }
-                }
-                method_names
-            }
-
-            pub fn has_methods(function_signatures: Vec<&str>) -> Vec<bool> {
-                #method_collection_tokens
-
-                function_signatures.iter().map(|f| {
-                    methods.iter().any(|methods_in_module| {
-                        methods_in_module.iter().any(|method| {
-                            *f == method.method_name
-                        })
-                    })
-                }).collect()
-            }
-
-            pub fn dispatch(namespace_and_function: &str, args: Vec<&str>) -> Option<String> {
-                #method_collection_tokens
-
-                for methods_in_module in methods.iter() {
-                    for method in *methods_in_module {
-                        let full_method_name = format!("{}.{}", method.namespace, method.method_name);
-                        if full_method_name == namespace_and_function {
-                            // Implement the actual logic to call the correct method here
-                            return Some(full_method_name); // Replace with actual dispatch call
-                        }
-                    }
-                }
-                None
-            }
+            method_keys.push(method_path(name));
+            method_bodies.push(body);
         }
-    };
 
-    TokenStream::from(expanded)
+        Ok(Methods {
+            argv,
+            invalid_method,
+            invalid_args,
+            method_keys,
+            method_bodies,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn ssri_methods(input: TokenStream) -> TokenStream {
+    let Methods {
+        argv,
+        invalid_method,
+        invalid_args,
+        method_keys,
+        method_bodies,
+    } = parse_macro_input!(input as Methods);
+
+    let version_path = method_path("SSRI.version");
+    let get_methods_path = method_path("SSRI.get_methods");
+    let has_methods_path = method_path("SSRI.has_methods");
+
+    let raw_methods = encode_u64_vector(
+        [version_path, get_methods_path, has_methods_path]
+            .iter()
+            .chain(method_keys.iter())
+            .copied()
+            .collect::<Vec<_>>(),
+    );
+    let raw_methods_len = raw_methods.len();
+
+    TokenStream::from(quote! {
+        {
+            use alloc::{borrow::Cow, vec::Vec};
+            use ckb_std::high_level::decode_hex;
+            const raw_methods: [u8; #raw_methods_len] = [#(#raw_methods,)*];
+            let res: Result<Cow<'static, [u8]>, Error> = match u64::from_le_bytes(
+                decode_hex(&(#argv)[0])?.try_into().map_err(|_| #invalid_method)?,
+            ) {
+                #version_path => Ok(Cow::from(&[0][..])),
+                #get_methods_path => {
+                    let offset = usize::min((4 +u64::from_le_bytes(
+                        decode_hex(&(#argv)[1])?
+                            .try_into()
+                            .map_err(|_| #invalid_args)?
+                    ) as usize * 8), #raw_methods_len);
+                    let limit = usize::min((4 + (offset + u64::from_le_bytes(
+                        decode_hex(&(#argv)[2])?
+                            .try_into()
+                            .map_err(|_| #invalid_args)?
+                    ) as usize) * 8), #raw_methods_len);
+                    if limit == 0 {
+                        Ok(Cow::from(&raw_methods[offset..]))
+                    } else {
+                        Ok(Cow::from(&raw_methods[offset..limit]))
+                    }
+                },
+                #has_methods_path => Ok(Cow::from(
+                    decode_hex(&(#argv)[1])?[4..].chunks(8).map(|path| {
+                        match raw_methods[4..]
+                            .chunks(8)
+                            .find(|v| v == &path) {
+                                Some(_) => 1,
+                                None => 0,
+                            }
+                    }).collect::<Vec<_>>()
+                )),
+                #(
+                    #method_keys => #method_bodies,
+                )*
+                _ => Err(#invalid_method),
+            };
+            res
+        }
+    })
 }
