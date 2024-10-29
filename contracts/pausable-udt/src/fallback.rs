@@ -7,14 +7,13 @@ use crate::{
 use alloc::vec;
 use alloc::vec::Vec;
 use ckb_std::{
-    ckb_constants::Source,
-    ckb_types::{bytes::Bytes, prelude::*},
-    high_level::{load_cell_lock_hash, load_script},
+    ckb_constants::Source, ckb_types::{bytes::Bytes, prelude::*}, debug, high_level::{load_cell_lock_hash, load_script}
 };
 
 use ckb_ssri_sdk::public_module_traits::udt::UDTPausable;
 
 pub fn fallback() -> Result<(), Error> {
+    debug!("Entered fallback");
     let script = load_script()?;
     let args: Bytes = script.args().unpack();
 
@@ -44,6 +43,7 @@ pub fn fallback() -> Result<(), Error> {
     if inputs_amount < outputs_amount {
         return Err(Error::InsufficientBalance);
     }
-
+    debug!("inputs_amount: {}", inputs_amount);
+    debug!("outputs_amount: {}", outputs_amount);
     Ok(())
 }

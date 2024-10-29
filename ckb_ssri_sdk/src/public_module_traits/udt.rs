@@ -29,7 +29,7 @@ pub trait UDTMetadata: UDT {
     fn get_extension_data(registry_key: String) -> Result<Bytes, Self::Error>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct UDTMetadataData {
     pub name: String,
     pub symbol: String,
@@ -38,7 +38,7 @@ pub struct UDTMetadataData {
 }
 
 // Note: This type is kept generic on purpose for future extensions.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct UDTExtensionDataRegistry {
     pub registry_key: String,
     #[serde(with = "dynvec_serde")]

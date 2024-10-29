@@ -1,3 +1,5 @@
+use core::str::Utf8Error;
+
 use ckb_std::error::SysError;
 use ckb_ssri_sdk::SSRIError;
 use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
@@ -14,6 +16,9 @@ pub enum Error {
     SpawnExceededMaxContentLength,
     SpawnWrongMemoryLimit,
     SpawnExceededMaxPeakMemory,
+
+    // * Rust Error
+    Utf8Error,
 
     // * SSRI Error
     SSRIMethodsNotFound,
@@ -97,6 +102,12 @@ impl From<SysError> for Error {
             SpawnExceededMaxPeakMemory => Self::SpawnExceededMaxPeakMemory,
             Unknown(err_code) => panic!("unexpected sys error {}", err_code),
         }
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(_err: Utf8Error) -> Self {
+        Self::Utf8Error
     }
 }
 

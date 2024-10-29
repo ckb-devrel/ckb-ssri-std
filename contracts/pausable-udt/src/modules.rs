@@ -10,6 +10,7 @@ use ckb_ssri_sdk::public_module_traits::udt::{
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
 use ckb_std::ckb_types::packed::{Byte32, Transaction, Script};
+use ckb_std::debug;
 use ckb_std::high_level::{load_cell_data, load_cell_type_hash};
 use serde_molecule::{from_slice, to_vec};
 
@@ -37,17 +38,17 @@ impl UDTMetadata for PausableUDT {
     // #[ssri_method(level = "Code")]
     fn name() -> Result<Bytes, Error> {
         let metadata = get_metadata();
-        Ok(Bytes::from(metadata.name.as_bytes()))
+        Ok(Bytes::from(metadata.name.into_bytes()))
     }
     // #[ssri_method(level = "Code")]
     fn symbol() -> Result<Bytes, Error> {
         let metadata = get_metadata();
-        Ok(Bytes::from(metadata.symbol.as_bytes()))
+        Ok(Bytes::from(metadata.symbol.into_bytes()))
     }
     // #[ssri_method(level = "Code")]
     /* Note: By default, decimals are 8 when decimals() are not implemented */
     fn decimals() -> Result<u8, Error> {
-        let metadata = get_metadata();
+        let metadata = get_metadata().clone();
         Ok(metadata.decimals)
     }
 
@@ -126,12 +127,16 @@ impl UDTPausable for PausableUDT {
 
     // #[ssri_method(level = "Transaction", transaction = true)]
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Error> {
+        debug!("Entered is_paused");
+        debug!("lock_hashes: {:?}", lock_hashes);
         let mut current_pause_list = Some(get_pausable_data().pause_list.clone()); // Start with an owned copy of the pause list
         
         while let Some(ref pause_list) = current_pause_list { // Borrow the pause list
+            debug!("Current pause list: {:?}", pause_list);
             // Check the current pause list
             for lock_hash in lock_hashes {
                 if pause_list.contains(lock_hash) {
+                    debug!("Lock hash found in pause list");
                     return Ok(true);
                 }
             }
@@ -151,11 +156,12 @@ impl UDTPausable for PausableUDT {
                     }
                 }
                 None => {
+                    debug!("No more pause lists and lock hash not found");
                     return Ok(false); // No more pause lists, return false
                 }
             }
         }
-    
+        debug!("No pause list found and lock hash not found");
         Ok(false)
     }
 
