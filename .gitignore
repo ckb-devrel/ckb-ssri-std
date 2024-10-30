@@ -3,3 +3,5 @@
 /tests/failed_txs
 deploy-tx.json
 .vscode
+/deployment
+/migrations

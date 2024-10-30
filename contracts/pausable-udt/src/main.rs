@@ -47,7 +47,7 @@ pub fn get_pausable_data() -> UDTPausableData {
     UDTPausableData {
         pause_list: utils::format_pause_list(vec![
             // Note: Paused lock hash for testing
-            "0x4a695a1188dc02ba84e567e9bf203467c412a8657fb93a551887c5d122a32aaa",
+            "0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e",
         ]),
         next_type_hash: None, // Type hash of cells that also contains UDTPausableData
     }

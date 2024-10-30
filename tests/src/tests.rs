@@ -129,3 +129,76 @@ pub fn test_transfer() {
         paused_receiver_err
     );
 }
+
+#[test]
+pub fn test_normal_mint() {
+    println!("Entered test_normal_mint");
+    let mut test_context = build_test_context();
+
+    let mint_amount: Uint128 = 20000000000u128.pack();
+
+    let admin_out_point = test_context.context.create_cell(
+        CellOutput::new_builder()
+            .capacity(10000u64.pack())
+            .lock(test_context.admin_lock_script.clone())
+            .build(),
+        Bytes::default(),
+    );
+
+    let admin_inputs = vec![CellInput::new_builder()
+        .previous_output(admin_out_point.clone())
+        .build()];
+
+    let normal_udt_output = CellOutput::new_builder()
+        .capacity(100u64.pack())
+        .lock(test_context.normal_user_b_lock_script.clone())
+        .type_(Some(test_context.pausable_udt_type_script.clone()).pack())
+        .build();
+
+    let outputs_data = vec![mint_amount.raw_data()];
+
+    let normal_mint_tx = TransactionBuilder::default()
+        .inputs(admin_inputs.clone())
+        .output(normal_udt_output.clone())
+        .outputs_data(outputs_data.clone().pack())
+        .cell_deps(vec![test_context.pausable_udt_dep.clone(), test_context.always_success_dep.clone()])
+        .build();
+
+    let normal_mint_tx = normal_mint_tx.as_advanced_builder().build();
+
+    let normal_cycles = test_context
+        .context
+        .verify_tx(&normal_mint_tx, u64::MAX)
+        .expect("Normal Mint Tx Failed");
+    println!("Normal Mint Tx cycles: {}", normal_cycles);
+
+    let user_a_out_point = test_context.context.create_cell(
+        CellOutput::new_builder()
+            .capacity(100u64.pack())
+            .lock(test_context.normal_user_a_lock_script.clone())
+            .build(),
+        mint_amount.as_bytes(),
+    );
+
+    let user_a_inputs = vec![CellInput::new_builder()
+        .previous_output(user_a_out_point.clone())
+        .build()];
+    let unauthorized_mint = TransactionBuilder::default()
+        .inputs(user_a_inputs.clone())
+        .output(normal_udt_output.clone())
+        .outputs_data(outputs_data.clone().pack())
+        .cell_deps(vec![test_context.pausable_udt_dep.clone(), test_context.always_success_dep.clone()])
+        .build();
+
+    let unauthorized_mint = unauthorized_mint.as_advanced_builder().build();
+
+    let unauthorized_mint_err = test_context
+        .context
+        .verify_tx(&unauthorized_mint, u64::MAX)
+        .unwrap_err();
+
+    println!(
+        "Expected Unauthorized Mint Tx Error: {:?}",
+        unauthorized_mint_err
+    );
+}

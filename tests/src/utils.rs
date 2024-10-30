@@ -78,46 +78,17 @@ pub fn build_test_context() -> PausableUDTTestContext {
         .build_script(&always_success_out_point, Bytes::default())
         .expect("script");
 
-    let fake_lock_outpoint = OutPoint::new_builder()
-        .tx_hash(Byte32::zero())
-        .index(0u32.pack())
-        .build();
-
-    let fake_lock_dep = CellDep::new_builder()
-        .out_point(fake_lock_outpoint.clone())
-        .build();
-
-    let fake_lock_cell_output = CellOutput::new_builder()
-        .capacity(1000u64.pack())
-        .lock(always_success_script.clone())
-        .build();
-
-    context.create_cell_with_out_point(
-        fake_lock_outpoint.clone(),
-        fake_lock_cell_output,
-        ALWAYS_SUCCESS.clone(),
-    );
-
-    let fake_lock_script = context
-        .build_script(&fake_lock_outpoint, Bytes::from(admin_args.clone()))
-        .expect("script");
-
-    println!(
-        "fake_lock_script.calc_script_hash(): {}",
-        fake_lock_script.calc_script_hash()
-    );
-
     let admin_lock_script = context
-        .build_script(&fake_lock_outpoint.clone(), Bytes::from(admin_args))
+        .build_script(&&always_success_out_point.clone(), Bytes::from(admin_args))
         .expect("script");
     let normal_user_a_lock_script = context
-        .build_script(&fake_lock_outpoint.clone(), Bytes::from(normal_user_a_args))
+        .build_script(&always_success_out_point.clone(), Bytes::from(normal_user_a_args))
         .expect("script");
     let normal_user_b_lock_script = context
-        .build_script(&fake_lock_outpoint.clone(), Bytes::from(normal_user_b_args))
+        .build_script(&always_success_out_point.clone(), Bytes::from(normal_user_b_args))
         .expect("script");
     let paused_user_lock_script = context
-        .build_script(&fake_lock_outpoint.clone(), Bytes::from(paused_user_args))
+        .build_script(&always_success_out_point.clone(), Bytes::from(paused_user_args))
         .expect("script");
 
     let pausable_udt_type_script = context

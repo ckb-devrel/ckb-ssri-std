@@ -52,6 +52,7 @@ pub fn check_owner_mode(args: &Bytes) -> Result<bool, Error> {
     let is_owner_mode = QueryIter::new(load_cell_lock_hash, Source::Input)
         .find(|lock_hash| args[..] == lock_hash[..])
         .is_some();
+    debug!("Owner mode: {}", is_owner_mode);
     Ok(is_owner_mode)
 }
 

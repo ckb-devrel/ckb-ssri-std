@@ -106,8 +106,8 @@ async fn test_version() {
 
 #[tokio::test]
 pub async fn test_is_paused() {
-    // Note: This is the lock hash of ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtxe0gs9yvwrsc40znvdc6sg4fehd2mttsngg4t4
-    let test_lock_hash_hex = "0xa9c1b6b195ce5b7a3f0bbc07d16e00100db0935798b9f7421cc86fb8218ba299";
+    // Note: This is the lock hash of ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp
+    let test_lock_hash_hex = "0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e";
     let test_lock_hash_u8_32: [u8;32] = decode_hex(CString::new(&test_lock_hash_hex[2..]).unwrap().as_c_str()).unwrap().try_into().unwrap();
     let test_lock_hash_array_vector = encode_u8_32_vector(vec![test_lock_hash_u8_32]);
     let test_lock_hash_array_encoded_hex = format!("0x{}", encode_hex(&test_lock_hash_array_vector).into_string().unwrap());
