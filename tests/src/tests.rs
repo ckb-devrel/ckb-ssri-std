@@ -92,42 +92,43 @@ pub fn test_transfer() {
         .expect("Normal Tx Failed");
     println!("Normal Tx cycles: {}", normal_cycles);
 
-    let paused_sender_transfer_tx = TransactionBuilder::default()
-        .inputs(paused_inputs.clone())
-        .outputs(paused_sender_outputs.clone())
-        .outputs_data(outputs_data.clone().pack())
-        .cell_deps(vec![test_context.pausable_udt_dep.clone()])
-        .build();
+    // NOTE: Due to limitations of ckb_testtools at the moment (i.e. not able to obtain stable lock hashes), we will test paused sender/receiver transfer in ckb_ssri_cli
+    // let paused_sender_transfer_tx = TransactionBuilder::default()
+    //     .inputs(paused_inputs.clone())
+    //     .outputs(paused_sender_outputs.clone())
+    //     .outputs_data(outputs_data.clone().pack())
+    //     .cell_deps(vec![test_context.pausable_udt_dep.clone()])
+    //     .build();
 
-    let paused_sender_transfer_tx = paused_sender_transfer_tx.as_advanced_builder().build();
+    // let paused_sender_transfer_tx = paused_sender_transfer_tx.as_advanced_builder().build();
 
-    let paused_sender_transfer_err = test_context
-        .context
-        .verify_tx(&paused_sender_transfer_tx, u64::MAX)
-        .unwrap_err();
-    println!(
-        "Expected Paused Sender Tx Error: {:?}",
-        paused_sender_transfer_err
-    );
+    // let paused_sender_transfer_err = test_context
+    //     .context
+    //     .verify_tx(&paused_sender_transfer_tx, u64::MAX)
+    //     .unwrap_err();
+    // println!(
+    //     "Expected Paused Sender Tx Error: {:?}",
+    //     paused_sender_transfer_err
+    // );
 
-    let paused_receiver_transfer_tx = TransactionBuilder::default()
-        .inputs(paused_inputs.clone())
-        .outputs(paused_receiver_outputs.clone())
-        .outputs_data(outputs_data.clone().pack())
-        .cell_deps(vec![test_context.pausable_udt_dep.clone()])
-        .build();
+    // let paused_receiver_transfer_tx = TransactionBuilder::default()
+    //     .inputs(paused_inputs.clone())
+    //     .outputs(paused_receiver_outputs.clone())
+    //     .outputs_data(outputs_data.clone().pack())
+    //     .cell_deps(vec![test_context.pausable_udt_dep.clone()])
+    //     .build();
 
-    let paused_receiver_transfer_tx = paused_receiver_transfer_tx.as_advanced_builder().build();
+    // let paused_receiver_transfer_tx = paused_receiver_transfer_tx.as_advanced_builder().build();
 
-    let paused_receiver_err = test_context
-        .context
-        .verify_tx(&paused_receiver_transfer_tx, u64::MAX)
-        .unwrap_err();
+    // let paused_receiver_err = test_context
+    //     .context
+    //     .verify_tx(&paused_receiver_transfer_tx, u64::MAX)
+    //     .unwrap_err();
 
-    println!(
-        "Expected Paused Receiver Tx Error: {:?}",
-        paused_receiver_err
-    );
+    // println!(
+    //     "Expected Paused Receiver Tx Error: {:?}",
+    //     paused_receiver_err
+    // );
 }
 
 #[test]
@@ -183,18 +184,18 @@ pub fn test_normal_mint() {
     let user_a_inputs = vec![CellInput::new_builder()
         .previous_output(user_a_out_point.clone())
         .build()];
-    let unauthorized_mint = TransactionBuilder::default()
+    let unauthorized_mint_tx = TransactionBuilder::default()
         .inputs(user_a_inputs.clone())
         .output(normal_udt_output.clone())
         .outputs_data(outputs_data.clone().pack())
         .cell_deps(vec![test_context.pausable_udt_dep.clone(), test_context.always_success_dep.clone()])
         .build();
 
-    let unauthorized_mint = unauthorized_mint.as_advanced_builder().build();
+    let unauthorized_mint_tx = unauthorized_mint_tx.as_advanced_builder().build();
 
     let unauthorized_mint_err = test_context
         .context
-        .verify_tx(&unauthorized_mint, u64::MAX)
+        .verify_tx(&unauthorized_mint_tx, u64::MAX)
         .unwrap_err();
 
     println!(

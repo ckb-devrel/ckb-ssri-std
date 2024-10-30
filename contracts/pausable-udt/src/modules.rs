@@ -9,7 +9,7 @@ use ckb_ssri_sdk::public_module_traits::udt::{
 // use ckb_ssri_sdk_proc_macro::{ssri_method, ssri_module};
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
-use ckb_std::ckb_types::packed::{Byte32, Transaction, Script};
+use ckb_std::ckb_types::packed::{Byte32, Script, Transaction};
 use ckb_std::debug;
 use ckb_std::high_level::{load_cell_data, load_cell_type_hash};
 use serde_molecule::{from_slice, to_vec};
@@ -24,17 +24,13 @@ impl UDT for PausableUDT {
         Err(Error::SSRIMethodsNotImplemented)
     }
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn transfer(
-        tx: Option<Transaction>,
-        to: Vec<(Script, u128)>,
-    ) -> Result<Transaction, Error> {
+    fn transfer(tx: Option<Transaction>, to: Vec<(Script, u128)>) -> Result<Transaction, Error> {
         todo!()
     }
 }
 
 // #[ssri_module(base = "UDT")]
 impl UDTMetadata for PausableUDT {
-    /** Note: If the UDT is issued with a generic UDT Type and defines it's metadata in CellDep, it would require Chain level; if it is only compliant to the SSRI trait UDT and is able to return name/symbol/decimals within the script, and it would require only code/script level. */
     // #[ssri_method(level = "Code")]
     fn name() -> Result<Bytes, Error> {
         let metadata = get_metadata();
@@ -46,7 +42,6 @@ impl UDTMetadata for PausableUDT {
         Ok(Bytes::from(metadata.symbol.into_bytes()))
     }
     // #[ssri_method(level = "Code")]
-    /* Note: By default, decimals are 8 when decimals() are not implemented */
     fn decimals() -> Result<u8, Error> {
         let metadata = get_metadata().clone();
         Ok(metadata.decimals)
@@ -67,10 +62,7 @@ impl UDTMetadata for PausableUDT {
 // #[ssri_module(base = "UDT")]
 impl UDTExtended for PausableUDT {
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn mint(
-        tx: Option<Transaction>,
-        to: Vec<(Script, u128)>,
-    ) -> Result<Transaction, Error> {
+    fn mint(tx: Option<Transaction>, to: Vec<(Script, u128)>) -> Result<Transaction, Error> {
         todo!()
     }
 
@@ -110,18 +102,12 @@ impl UDTExtended for PausableUDT {
 // #[ssri_module(base = "UDT")]
 impl UDTPausable for PausableUDT {
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn pause(
-        tx: Option<Transaction>,
-        lock_hashes: &Vec<[u8; 32]>,
-    ) -> Result<Transaction, Error> {
+    fn pause(tx: Option<Transaction>, lock_hashes: &Vec<[u8; 32]>) -> Result<Transaction, Error> {
         todo!()
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn unpause(
-        tx: Option<Transaction>,
-        lock_hashes: &Vec<[u8; 32]>,
-    ) -> Result<Transaction, Error> {
+    fn unpause(tx: Option<Transaction>, lock_hashes: &Vec<[u8; 32]>) -> Result<Transaction, Error> {
         todo!()
     }
 
@@ -130,18 +116,20 @@ impl UDTPausable for PausableUDT {
         debug!("Entered is_paused");
         debug!("lock_hashes: {:?}", lock_hashes);
         let mut current_pause_list = Some(get_pausable_data().pause_list.clone()); // Start with an owned copy of the pause list
-        
-        while let Some(ref pause_list) = current_pause_list { // Borrow the pause list
+
+        while let Some(ref pause_list) = current_pause_list {
             debug!("Current pause list: {:?}", pause_list);
-            // Check the current pause list
+            if pause_list.contains(&[0u8; 32]) {
+                debug!("Global pausing found");
+                return Ok(true);
+            }
             for lock_hash in lock_hashes {
                 if pause_list.contains(lock_hash) {
                     debug!("Lock hash found in pause list");
                     return Ok(true);
                 }
             }
-            
-            // Move to the next pause list if there is a next type hash
+
             match get_pausable_data().next_type_hash {
                 Some(next_type_hash) => {
                     let mut index = 0;
@@ -149,15 +137,15 @@ impl UDTPausable for PausableUDT {
                         if type_hash == Some(next_type_hash) {
                             let next_data: UDTPausableData =
                                 from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
-                            current_pause_list = Some(next_data.pause_list); // Move ownership of the pause list
-                            break; // Exit the loop to check the next pause list
+                            current_pause_list = Some(next_data.pause_list);
+                            break;
                         }
                         index += 1;
                     }
                 }
                 None => {
                     debug!("No more pause lists and lock hash not found");
-                    return Ok(false); // No more pause lists, return false
+                    return Ok(false);
                 }
             }
         }
@@ -169,20 +157,21 @@ impl UDTPausable for PausableUDT {
     fn enumerate_paused() -> Result<Vec<[u8; 32]>, Error> {
         let mut aggregated_paused_list: Vec<[u8; 32]> = vec![];
         aggregated_paused_list.extend(&get_pausable_data().pause_list.clone());
-        
+
         while true {
             match get_pausable_data().next_type_hash {
                 Some(next_type_hash) => {
                     let mut index = 0;
                     while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
                         if type_hash == Some(next_type_hash) {
-                            let next_data: UDTPausableData = from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
+                            let next_data: UDTPausableData =
+                                from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
                             aggregated_paused_list.extend(&next_data.pause_list);
                         }
                     }
                 }
                 None => {
-                    return Ok(aggregated_paused_list); // Return the Vec by value
+                    return Ok(aggregated_paused_list);
                 }
             }
         }

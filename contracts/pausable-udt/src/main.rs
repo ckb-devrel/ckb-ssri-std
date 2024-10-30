@@ -35,10 +35,10 @@ use syscall::vm_version;
 
 pub fn get_metadata() -> UDTMetadataData {
     UDTMetadataData {
-        name: String::from("UDT"),   // UDT name
-        symbol: String::from("UDT"), // UDT symbol
+        name: String::from("UDT"),
+        symbol: String::from("UDT"),
         decimals: 8,
-        extension_data_registry: vec![], // Extension data initialized empty for now
+        extension_data_registry: vec![], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
     }
 }
 
@@ -46,10 +46,10 @@ pub fn get_pausable_data() -> UDTPausableData {
     debug!("Entered get_pausable_data");
     UDTPausableData {
         pause_list: utils::format_pause_list(vec![
-            // Note: Paused lock hash for testing
+            // Note: Paused lock hash for testing for ckb_ssri_cli. The address is ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp
             "0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e",
         ]),
-        next_type_hash: None, // Type hash of cells that also contains UDTPausableData
+        next_type_hash: None, // Type hash of another cell that also contains UDTPausableData
     }
 }
 
@@ -60,6 +60,7 @@ fn program_entry_wrap() -> Result<(), Error> {
         return Ok(fallback::fallback()?);
     }
     debug!("Entering ssri_methods");
+    // NOTE: In the future, methods can be reflected automatically from traits using procedural macros and entry methods to other methods of the same trait for a more concise and maintainable entry function.
     let res: Cow<'static, [u8]> = ssri_methods!(
         argv: &argv,
         invalid_method: Error::SSRIMethodsNotFound,
