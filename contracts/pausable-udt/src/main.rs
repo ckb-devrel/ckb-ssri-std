@@ -59,6 +59,9 @@ fn program_entry_wrap() -> Result<(), Error> {
     if argv.is_empty() {
         return Ok(fallback::fallback()?);
     }
+    if vm_version() != u64::MAX {
+        return Err(Error::InvalidVmVersion);
+    }
     debug!("Entering ssri_methods");
     // NOTE: In the future, methods can be reflected automatically from traits using procedural macros and entry methods to other methods of the same trait for a more concise and maintainable entry function.
     let res: Cow<'static, [u8]> = ssri_methods!(

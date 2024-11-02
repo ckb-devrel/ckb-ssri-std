@@ -81,7 +81,7 @@ pub fn test_transfer() {
         .inputs(normal_inputs.clone())
         .outputs(normal_outputs.clone())
         .outputs_data(outputs_data.clone().pack())
-        .cell_deps(vec![test_context.pausable_udt_dep.clone()])
+        .cell_deps(vec![test_context.pausable_udt_dep.clone(), test_context.always_success_dep.clone()])
         .build();
 
     let normal_transfer_tx = normal_transfer_tx.as_advanced_builder().build();

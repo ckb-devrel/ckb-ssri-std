@@ -25,6 +25,7 @@ pub enum Error {
     SSRIMethodsArgsInvalid,
     SSRIMethodsNotImplemented,
     SSRIMethodRequireHigherLevel,
+    InvalidVmVersion,
 
 
     // * Serde Molecule Error

@@ -30,7 +30,7 @@ async fn test_get_methods() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x9e36b25f047c6262a138316394098e879a4128743aabd6ece4803364e5fdf8b3",
+            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
             0,
             [get_methods_path_hex, "0x0000000000000000", "0x0a00000000000000"]
         ]
@@ -78,7 +78,7 @@ async fn test_version() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x9e36b25f047c6262a138316394098e879a4128743aabd6ece4803364e5fdf8b3",
+            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
             0,
             [version_path_hex]
         ]
@@ -101,19 +101,30 @@ async fn test_version() {
 
     let response_json: serde_json::Value = response.json().await.expect("Failed to parse JSON");
     println!("Response JSON: {:?}", response_json);
-
 }
 
 #[tokio::test]
 pub async fn test_is_paused() {
     // Note: This is the lock hash of ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp
     let test_lock_hash_hex = "0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e";
-    let test_lock_hash_u8_32: [u8;32] = decode_hex(CString::new(&test_lock_hash_hex[2..]).unwrap().as_c_str()).unwrap().try_into().unwrap();
+    let test_lock_hash_u8_32: [u8; 32] =
+        decode_hex(CString::new(&test_lock_hash_hex[2..]).unwrap().as_c_str())
+            .unwrap()
+            .try_into()
+            .unwrap();
     let test_lock_hash_array_vector = encode_u8_32_vector(vec![test_lock_hash_u8_32]);
-    let test_lock_hash_array_encoded_hex = format!("0x{}", encode_hex(&test_lock_hash_array_vector).into_string().unwrap());
+    let test_lock_hash_array_encoded_hex = format!(
+        "0x{}",
+        encode_hex(&test_lock_hash_array_vector)
+            .into_string()
+            .unwrap()
+    );
     println!("Test lock hash: {:?}", test_lock_hash_u8_32);
     println!("Test lock hash encoded: {:?}", test_lock_hash_array_vector);
-    println!("Test lock hash encoded hex: {:?}", test_lock_hash_array_encoded_hex);
+    println!(
+        "Test lock hash encoded hex: {:?}",
+        test_lock_hash_array_encoded_hex
+    );
 
     let is_paused_path_hex = method_path_hex("UDT.is_paused");
     println!("is_paused path hex: {:?}", is_paused_path_hex);
@@ -124,7 +135,7 @@ pub async fn test_is_paused() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0xe06146dc630f96b3fb0a6cbaf81350b87aa8f195745bdf21d6d4f6de2f53d0cc",
+            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
             0,
             [is_paused_path_hex, test_lock_hash_array_encoded_hex]
         ]
@@ -144,7 +155,7 @@ pub async fn test_enumerate_paused() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0xe06146dc630f96b3fb0a6cbaf81350b87aa8f195745bdf21d6d4f6de2f53d0cc",
+            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
             0,
             [enumerate_paused_path_hex]
         ]
@@ -153,4 +164,3 @@ pub async fn test_enumerate_paused() {
     let response_json: serde_json::Value = get_ssri_response(payload).await;
     println!("Response JSON: {:?}", response_json);
 }
-
