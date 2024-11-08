@@ -1,4 +1,5 @@
-// Note: These tests currently depends on a running SSRI-server. See https://github.com/ckb-devrel/ssri-server
+// NOTE: These tests currently depends on a running SSRI-server. See https://github.com/ckb-devrel/ssri-server
+// NOTE: Due to the limitations of ckb_testtools at the moment (i.e. not able to obtain stable lock hashes), we will test paused sender/receiver transfer in ckb_ssri_cli
 
 use std::ffi::CString;
 
@@ -30,7 +31,8 @@ async fn test_get_methods() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
+            // TODO: Get outpoint from deployment record
+            "0xb99f540caf4b03d152aa27626fbe62bf5559a9166a9ed1984b2d4fcbf063f964",
             0,
             [get_methods_path_hex, "0x0000000000000000", "0x0a00000000000000"]
         ]
@@ -78,7 +80,7 @@ async fn test_version() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
+            "0xb99f540caf4b03d152aa27626fbe62bf5559a9166a9ed1984b2d4fcbf063f964",
             0,
             [version_path_hex]
         ]
@@ -135,7 +137,7 @@ pub async fn test_is_paused() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
+            "0xb99f540caf4b03d152aa27626fbe62bf5559a9166a9ed1984b2d4fcbf063f964",
             0,
             [is_paused_path_hex, test_lock_hash_array_encoded_hex]
         ]
@@ -155,7 +157,7 @@ pub async fn test_enumerate_paused() {
         "jsonrpc": "2.0",
         "method": "run_script_level_code",
         "params": [
-            "0x24e477bdae84955713ce9075cc176e87f1c882fa3cedcde4ea3dd6c1ee7b0d5c",
+            "0xb99f540caf4b03d152aa27626fbe62bf5559a9166a9ed1984b2d4fcbf063f964",
             0,
             [enumerate_paused_path_hex]
         ]

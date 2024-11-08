@@ -69,19 +69,19 @@ fn program_entry_wrap() -> Result<(), Error> {
         invalid_method: Error::SSRIMethodsNotFound,
         invalid_args: Error::SSRIMethodsArgsInvalid,
         "SSRI.get_cell_deps" => Ok(Cow::from(&[0, 0, 0, 0][..])),
-        "UDT.name" => Ok(Cow::from(modules::PausableUDT::name()?.to_vec())),
-        "UDT.symbol" => Ok(Cow::from(modules::PausableUDT::symbol()?.to_vec())),
-        "UDT.decimals" => Ok(Cow::from(modules::PausableUDT::decimals()?.to_le_bytes().to_vec())),
+        "UDTMetadata.name" => Ok(Cow::from(modules::PausableUDT::name()?.to_vec())),
+        "UDTMetadata.symbol" => Ok(Cow::from(modules::PausableUDT::symbol()?.to_vec())),
+        "UDTMetadata.decimals" => Ok(Cow::from(modules::PausableUDT::decimals()?.to_le_bytes().to_vec())),
         "UDT.balance" => Ok(Cow::from(modules::PausableUDT::balance()?.to_le_bytes().to_vec())),
-        "UDT.get_extension_data" => {
+        "UDTMetadata.get_extension_data" => {
             let response = modules::PausableUDT::get_extension_data(String::from(argv[1].to_str()?))?;
             Ok(Cow::from(response.to_vec()))
         },
-        "UDT.is_paused" => {
+        "UDTPausable.is_paused" => {
             let response = modules::PausableUDT::is_paused(&decode_u8_32_vector(decode_hex(argv[1].as_ref())?).map_err(|_|error::Error::InvalidArray)?)?;
             Ok(Cow::from(vec!(response as u8)))
         },
-        "UDT.enumerate_paused" => {
+        "UDTPausable.enumerate_paused" => {
             let response = encode_u8_32_vector(modules::PausableUDT::enumerate_paused()?.to_vec());
             Ok(Cow::from(response.to_vec()))
         },

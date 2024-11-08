@@ -41,9 +41,9 @@ pub fn test_transfer() {
         .previous_output(normal_udt_input_outpoint.clone())
         .build()];
 
-    let paused_inputs = vec![CellInput::new_builder()
-        .previous_output(paused_udt_input_outpoint.clone())
-        .build()];
+    // let paused_inputs = vec![CellInput::new_builder()
+    //     .previous_output(paused_udt_input_outpoint.clone())
+    //     .build()];
 
     let normal_udt_output = CellOutput::new_builder()
         .capacity(100u64.pack())
@@ -71,9 +71,9 @@ pub fn test_transfer() {
 
     let normal_outputs = vec![normal_udt_output.clone(), normal_udt_change_output.clone()];
 
-    let paused_sender_outputs = vec![normal_udt_output.clone(), paused_udt_change_output.clone()];
+    // let paused_sender_outputs = vec![normal_udt_output.clone(), paused_udt_change_output.clone()];
 
-    let paused_receiver_outputs = vec![paused_udt_output.clone(), normal_udt_change_output.clone()];
+    // let paused_receiver_outputs = vec![paused_udt_output.clone(), normal_udt_change_output.clone()];
 
     let outputs_data = vec![transfer_amount.raw_data(), change_amount.raw_data()];
 

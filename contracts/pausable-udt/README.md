@@ -3,6 +3,11 @@
 ## Usage
 
 - Deploy with [ckb-cinnabar](https://github.com/ashuralyk/ckb-cinnabar?tab=readme-ov-file#deployment-module) for easier deployment and migration with Type ID.
+
+```shell
+ckb-cinnabar migrate --contract-name pausable-udt --from-tag v241030.1 --to-tag v241030.2
+```
+
 - Interact with [ckb_ssri_cli](https://github.com/Alive24/ckb_ssri_cli)
     - `ckb_ssri_cli udt:balance`: Balance checking
     - `ckb_ssri_cli udt:transfer`: Transfer UDT
