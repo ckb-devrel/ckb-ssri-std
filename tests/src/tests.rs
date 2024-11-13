@@ -132,8 +132,8 @@ pub fn test_transfer() {
 }
 
 #[test]
-pub fn test_normal_mint() {
-    println!("Entered test_normal_mint");
+pub fn test_mint() {
+    println!("Entered test_mint");
     let mut test_context = build_test_context();
 
     let mint_amount: Uint128 = 20000000000u128.pack();

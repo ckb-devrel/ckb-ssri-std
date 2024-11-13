@@ -3,6 +3,8 @@ use core::arch::asm;
 
 use ckb_std::ckb_constants::SYS_VM_VERSION;
 
+use crate::SSRIError;
+
 #[cfg(target_arch = "riscv64")]
 #[allow(clippy::too_many_arguments)]
 pub unsafe fn syscall(
@@ -46,4 +48,16 @@ pub unsafe fn syscall(
 
 pub fn vm_version() -> u64 {
     unsafe { syscall(0, 0, 0, 0, 0, 0, 0, SYS_VM_VERSION) }
+}
+
+pub fn should_fallback() -> Result<bool, SSRIError> {
+    if ckb_std::env::argv().is_empty() {
+        return Ok(true);
+    } else {
+        if vm_version() != u64::MAX {
+            return Err(SSRIError::InvalidVmVersion);
+        } else {
+            return Ok(false);
+        }
+    }
 }

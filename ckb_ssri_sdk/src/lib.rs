@@ -4,6 +4,8 @@
 // use syn::{parse_macro_input, Attribute, ItemMod, Lit, Meta, MetaNameValue};
 pub mod public_module_traits;
 pub mod prelude;
+pub mod utils;
+
 extern crate alloc;
 
 // macro_rules! ssri_entry {
@@ -40,8 +42,9 @@ extern crate alloc;
 #[repr(i8)]
 #[derive(Debug)]
 pub enum SSRIError {
-    SSRIMethodsNotFound = 4,
-    SSRIMethodsArgsInvalid = 5,
-    SSRIMethodsNotImplemented = 6,
-    SSRIMethodRequireHigherLevel = 7,
+    SSRIMethodsNotFound,
+    SSRIMethodsArgsInvalid,
+    SSRIMethodsNotImplemented,
+    SSRIMethodRequireHigherLevel,
+    InvalidVmVersion
 }

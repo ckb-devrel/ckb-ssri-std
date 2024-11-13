@@ -3,6 +3,7 @@ use core::str::Utf8Error;
 use ckb_std::error::SysError;
 use ckb_ssri_sdk::SSRIError;
 use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
+use serde_molecule::molecule;
 
 /// Error
 #[repr(i8)]
@@ -144,6 +145,7 @@ impl From<SSRIError> for Error {
             SSRIError::SSRIMethodsArgsInvalid => Self::SSRIMethodsNotImplemented,
             SSRIError::SSRIMethodsNotImplemented => Self::SSRIMethodsNotImplemented,
             SSRIError::SSRIMethodRequireHigherLevel => Self::SSRIMethodRequireHigherLevel,
+            SSRIError::InvalidVmVersion => Self::InvalidVmVersion
         }
     }
 }
