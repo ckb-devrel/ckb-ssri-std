@@ -11,10 +11,10 @@
 
 - SSRI stands for `Script Sourced Rich Information`; it is a protocol for strong bindings of relevant information and conventions to the Script itself on CKB. For more information, please read [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256)>.
 - Such bindings would take place in a progressive pattern:
-    - In the current coding paradigms for all contracts in production, testing, or active development, (or specifically, in Stage 1), the CKB smart contract being SSRI-Compliant would help us:
-        1. In the typical scenario of validating transactions, by specifically using Rust Traits, we recognize the purpose (or more specifically, the `Intent` of running the script) (e.g., `minting UDT`, `transferring`) and build relevant validation logics within the scope of the corresponding method.
+        1. On the level of validating transactions, by specifically using Rust Traits, we recognize the purpose (or more specifically, the `Intent` of running the script) (e.g., `minting UDT`, `transferring`) and build relevant validation logics within the scope of the corresponding method.
         2. On the level of reading and organizing contract code, by selectively implementing methods of public module traits (e.g. `UDT`, `UDTExtended`, `UDTPausable`) in combinations, generic users and devs would be able to quickly understand and organize functionalities of contracts as well as the relevant adaptations / integrations in dApps , especially in use cases involving multiple distinct contracts (and very likely from different projects) within same transactions.
-
+        3. On the level of dApp integration and interactions with `ckb_ssri_cli`, SSRI-Compliant contracts provide predictable interfaces for information query (e.g. generic metadata source for explorer, CCC integration for pubic trait methods such as UDT), transaction generation/completion, and output data calculations which reduces engineering workload significantly by sharing code effectively.
+  
 ### Goals of `ckb_ssri_sdk`
 
 - Easier and intuitive implementations and built-in integration support (e.g. `CCC` and `ckb_ssri_cli`) of SSRI public traits.
