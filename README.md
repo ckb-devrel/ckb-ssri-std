@@ -6,6 +6,7 @@
 >
 > [`ssri-server`](https://github.com/ckb-devrel/ssri-server): Server for calling SSRI methods.
 >
+> [`ckb_ssri_cli`](https://github.com/Alive24/ckb_ssri_cli): Command Line Interface for general users, moderators, and devs to interact with SSRI-Compliant Contracts deployed on CKB Network.
 ## About
 `ckb_ssri_sdk` is a toolkit to help developers build SSRI-Compliant smart contracts on CKB by providing:
 - Public Module Traits which would receive first party infrastructure support across the ecosystem, such as CKB Explorer, JoyID wallet, etc.
