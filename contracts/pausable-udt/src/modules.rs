@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::utils::{collect_inputs_amount, collect_outputs_amount};
 use crate::{get_metadata, get_pausable_data};
+use alloc::ffi::CString;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -11,14 +12,16 @@ use ckb_ssri_sdk::utils::should_fallback;
 // use ckb_ssri_sdk_proc_macro::{ssri_method, ssri_module};
 use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
+use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::{
     Byte32, CellOutput, CellOutputBuilder, CellOutputVecBuilder, RawTransactionBuilder, Script,
-    ScriptOpt, ScriptOptBuilder, Transaction, TransactionBuilder,
+    ScriptBuilder, ScriptOpt, ScriptOptBuilder, Transaction, TransactionBuilder,
 };
-use ckb_std::ckb_types::prelude::{Builder, Entity, ShouldBeOk, Unpack};
+use ckb_std::ckb_types::prelude::{Builder, Entity, Pack, ShouldBeOk, Unpack};
 use ckb_std::debug;
 use ckb_std::high_level::{
-    load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_script, load_transaction,
+    decode_hex, load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_script,
+    load_transaction,
 };
 use serde_molecule::{from_slice, to_vec};
 
@@ -84,11 +87,43 @@ impl UDT for PausableUDT {
                 None => CellOutputVecBuilder::default(),
             };
 
+            let script = ScriptBuilder::default()
+                .code_hash(
+                    Byte32::from_compatible_slice(
+                        decode_hex(
+                            CString::new(
+                                "64e62e0f847240e23bea2801af6c39a62be25b7dce522cef3462624fa260135e",
+                            )
+                            .unwrap()
+                            .as_c_str(),
+                        )?
+                        .as_slice(),
+                    )
+                    .unwrap(),
+                )
+                .args(
+                    Bytes::from_static(
+                        decode_hex(
+                            CString::new(
+                                "b5202efa0f2d250af66f0f571e4b8be8b272572663707a052907f8760112fe35",
+                            )
+                            .unwrap()
+                            .as_c_str(),
+                        )?
+                        .as_slice(),
+                    )
+                    .pack(),
+                )
+                .hash_type(ScriptHashType::Type.into())
+                .build();
+
             let new_transfer_output = CellOutputBuilder::default()
                 // TODO: Set lock and capacity automatically in CCC.
                 .type_(
                     ScriptOptBuilder::default()
-                        .set(Some(load_script()?))
+                        // TODO: load_script under run_script_level_script fails.
+                        // .set(Some(load_script()?))
+                        .set(Some(script))
                         .build(),
                 )
                 .build();
@@ -97,11 +132,7 @@ impl UDT for PausableUDT {
                 tx_builder
                     .raw(
                         raw_tx_builder
-                            .outputs(
-                                cell_output_vec_builder
-                                .push(new_transfer_output)
-                                .build()
-                            )
+                            .outputs(cell_output_vec_builder.push(new_transfer_output).build())
                             .build(),
                     )
                     .build(),

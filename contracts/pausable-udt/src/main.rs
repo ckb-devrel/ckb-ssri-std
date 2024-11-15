@@ -90,10 +90,6 @@ fn program_entry_wrap() -> Result<(), Error> {
         },
         "UDT.transfer" => {
             debug!("program_entry_wrap | Entered UDT.transfer");
-            if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
-                Err(Error::SSRIMethodsArgsInvalid)?;
-            }
-            
             let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
             let to_lock_vec: Vec<Script> = to_lock_bytes_vec
                 .into_iter()
@@ -109,6 +105,10 @@ fn program_entry_wrap() -> Result<(), Error> {
                 )
                 .collect();
             debug!("program_entry_wrap | to_amount_vec: {:?}", to_amount_vec);
+
+            if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
+                Err(Error::SSRIMethodsArgsInvalid)?;
+            }
             
             let mut tx: Option<Transaction> = None;
             if argv[1].is_empty() {
