@@ -28,7 +28,7 @@ pub fn fallback() -> Result<(), Error> {
         return Err(Error::InsufficientBalance);
     }
 
-    match PausableUDT::transfer(None, None) {
+    match PausableUDT::transfer(None, vec![], vec![]) {
         Ok(_) => Ok(()),
         Err(e) => Err(e),
     }

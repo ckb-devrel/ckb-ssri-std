@@ -34,8 +34,10 @@ impl UDT for PausableUDT {
     // #[ssri_method(level = "Transaction", transaction = true)]
     fn transfer(
         tx: Option<Transaction>,
-        to: Option<Vec<(Script, u128)>>,
+        to_lock_vec: Vec<Script>,
+        to_amount_vec: Vec<u128>,
     ) -> Result<Option<Transaction>, Error> {
+        debug!("Entered UDT::transfer");
         if should_fallback()? {
             let script = load_script()?;
             let args: Bytes = script.args().unpack();
@@ -143,7 +145,8 @@ impl UDTExtended for PausableUDT {
     // #[ssri_method(level = "Transaction", transaction = true)]
     fn mint(
         tx: Option<Transaction>,
-        to: Option<Vec<(Script, u128)>>,
+        to_lock_vec: Vec<Script>,
+        to_amount_vec: Vec<u128>,
     ) -> Result<Option<Transaction>, Error> {
         todo!()
     }

@@ -1,7 +1,7 @@
 #[cfg(target_arch = "riscv64")]
 use core::arch::asm;
 
-use ckb_std::ckb_constants::SYS_VM_VERSION;
+use ckb_std::{ckb_constants::SYS_VM_VERSION, debug};
 
 use crate::SSRIError;
 
@@ -52,11 +52,13 @@ pub fn vm_version() -> u64 {
 
 pub fn should_fallback() -> Result<bool, SSRIError> {
     if ckb_std::env::argv().is_empty() {
+        debug!("Should fallback!");
         return Ok(true);
     } else {
         if vm_version() != u64::MAX {
             return Err(SSRIError::InvalidVmVersion);
         } else {
+            debug!("Should not fallback!");
             return Ok(false);
         }
     }

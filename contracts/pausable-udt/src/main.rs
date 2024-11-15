@@ -10,7 +10,7 @@ use ckb_ssri_sdk::prelude::{decode_u8_32_vector, encode_u8_32_vector};
 use ckb_ssri_sdk::utils::should_fallback;
 use ckb_ssri_sdk_proc_macro::ssri_methods;
 use ckb_std::ckb_types::bytes::Bytes;
-use ckb_std::ckb_types::packed::{Byte32, Script, ScriptBuilder, Transaction};
+use ckb_std::ckb_types::packed::{Byte32, Script, ScriptBuilder, Transaction, BytesVec};
 use ckb_std::debug;
 #[cfg(not(test))]
 use ckb_std::default_alloc;
@@ -29,7 +29,6 @@ use alloc::vec::Vec;
 
 use ckb_std::ckb_types::prelude::{Builder, Entity, ShouldBeOk, Unpack};
 
-mod ckb_types_serde_molecule;
 mod error;
 mod fallback;
 mod modules;
@@ -90,33 +89,36 @@ fn program_entry_wrap() -> Result<(), Error> {
             Ok(Cow::from(response.to_vec()))
         },
         "UDT.transfer" => {
+            debug!("program_entry_wrap | Entered UDT.transfer");
+            if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
+                Err(Error::SSRIMethodsArgsInvalid)?;
+            }
+            
+            let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
+            let to_lock_vec: Vec<Script> = to_lock_bytes_vec
+                .into_iter()
+                .map(|bytes| Script::new_unchecked(bytes.as_bytes()))
+                .collect();
+            debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
+
+            let to_amount_bytes = decode_hex(argv[3].as_ref())?;
+            let to_amount_vec: Vec<u128> = decode_hex(argv[3].as_ref())?[4..]
+                .chunks(16)
+                .map(|chunk| {
+                    return u128::from_le_bytes(chunk.try_into().unwrap())}
+                )
+                .collect();
+            debug!("program_entry_wrap | to_amount_vec: {:?}", to_amount_vec);
+            
             let mut tx: Option<Transaction> = None;
-            let mut to: Option<Vec<(Script, u128)>> = None;
             if argv[1].is_empty() {
                 tx = None;
             } else {
                 let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
                 tx = Some(parsed_tx);
             }
-            if argv[2].is_empty(){
-                Err(Error::SSRIMethodsArgsInvalid)?;
-            } else {
-                let parsed_to: Vec<(ckb_types_serde_molecule::Script, u128)> = from_slice(&decode_hex(argv[1].as_ref())?, false)?;
-                let mut typed_to: Vec<(Script, u128)> = vec![];
-                for (script, amount) in parsed_to.iter() {
-                    let typed_script = ScriptBuilder::default()
-                        .code_hash(Byte32::new_unchecked(Bytes::from_static(&script.code_hash)))
-                        .hash_type(script.hash_type.into())
-                        .args(ckb_std::ckb_types::packed::Bytes::new_unchecked(script.args.as_slice().into()))
-                        .build();
-                    typed_to.push((typed_script, *amount));
-                }
-                to = Some(typed_to)
-            }
-            if tx.is_none() || to.is_none() {
-                Err(Error::SSRIMethodsArgsInvalid)?;
-            }
-            let response_opt = modules::PausableUDT::transfer(tx, to)?;
+            
+            let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
             match response_opt {
                 Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),

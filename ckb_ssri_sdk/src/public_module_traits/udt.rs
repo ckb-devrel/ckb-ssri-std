@@ -14,7 +14,8 @@ pub trait UDT {
     fn balance() -> Result<u128, Self::Error>;
     fn transfer(
         tx: Option<Transaction>,
-        to: Option<Vec<(Script, u128)>>,
+        to_lock_vec: Vec<Script>,
+        to_amount_vec: Vec<u128>,
     ) -> Result<Option<Transaction>, Self::Error>;
 }
 pub const UDT_LEN: usize = 16;
@@ -55,7 +56,8 @@ pub enum UDTMetadataError {
 pub trait UDTExtended: UDT + UDTMetadata {
     fn mint(
         tx: Option<Transaction>,
-        to: Option<Vec<(Script, u128)>>,
+        to_lock_vec: Vec<Script>,
+        to_amount_vec: Vec<u128>,
     ) -> Result<Option<Transaction>, Self::Error>;
     fn approve(
         tx: Option<Transaction>,

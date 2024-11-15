@@ -15,6 +15,7 @@ use std::str::FromStr;
 mod ssri;
 mod utils;
 mod tests;
+mod tool;
 
 // The exact same Loader code from capsule's template, except that
 // now we use MODE as the environment variable
