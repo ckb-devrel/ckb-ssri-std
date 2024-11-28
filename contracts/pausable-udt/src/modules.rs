@@ -14,14 +14,15 @@ use ckb_std::ckb_constants::Source;
 use ckb_std::ckb_types::bytes::Bytes;
 use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::{
-    Byte32, CellOutput, CellOutputBuilder, CellOutputVecBuilder, RawTransactionBuilder, Script,
-    ScriptBuilder, ScriptOpt, ScriptOptBuilder, Transaction, TransactionBuilder,
+    Byte32, BytesVecBuilder, CellInputVecBuilder, CellOutput, CellOutputBuilder,
+    CellOutputVecBuilder, RawTransactionBuilder, Script, ScriptBuilder, ScriptOpt,
+    ScriptOptBuilder, Transaction, TransactionBuilder,
 };
 use ckb_std::ckb_types::prelude::{Builder, Entity, Pack, ShouldBeOk, Unpack};
 use ckb_std::debug;
 use ckb_std::high_level::{
-    decode_hex, load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_script,
-    load_transaction,
+    decode_hex, load_cell, load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_input,
+    load_script, load_transaction,
 };
 use serde_molecule::{from_slice, to_vec};
 
@@ -42,27 +43,6 @@ impl UDT for PausableUDT {
     ) -> Result<Option<Transaction>, Error> {
         debug!("Entered UDT::transfer");
         if should_fallback()? {
-            let script = load_script()?;
-            let args: Bytes = script.args().unpack();
-
-            let mut lock_hashes: Vec<[u8; 32]> = vec![];
-
-            let mut index = 0;
-            while let Ok(lock_hash) = load_cell_lock_hash(index, Source::Input) {
-                lock_hashes.push(lock_hash);
-                index += 1;
-            }
-
-            index = 0;
-            while let Ok(lock_hash) = load_cell_lock_hash(index, Source::Output) {
-                lock_hashes.push(lock_hash);
-                index += 1;
-            }
-
-            if PausableUDT::is_paused(&lock_hashes)? {
-                return Err(Error::AbortedFromPause);
-            }
-
             let inputs_amount = collect_inputs_amount()?;
             let outputs_amount = collect_outputs_amount()?;
 
@@ -73,6 +53,9 @@ impl UDT for PausableUDT {
             debug!("outputs_amount: {}", outputs_amount);
             Ok((None))
         } else {
+            if to_amount_vec.len() != to_lock_vec.len() {
+                return Err(Error::SSRIMethodsArgsInvalid);
+            }
             let tx_builder = match tx {
                 Some(ref tx) => tx.clone().as_builder(),
                 None => TransactionBuilder::default(),
@@ -82,57 +65,61 @@ impl UDT for PausableUDT {
                 None => RawTransactionBuilder::default(),
             };
 
+            let mut new_cell_output_vec = Vec::new();
+            let mut new_output_data_vec = Vec::new();
+            for (to_lock, to_amount) in to_lock_vec.iter().zip(to_amount_vec.iter()) {
+                let new_transfer_output = CellOutputBuilder::default()
+                    .type_(
+                        ScriptOptBuilder::default()
+                            .set(Some(load_script()?))
+                            .build(),
+                    )
+                    .lock(to_lock.clone())
+                    .build();
+                new_cell_output_vec.push(new_transfer_output);
+                new_output_data_vec.push(to_vec(to_amount, false)?.pack());
+            }
+
             let cell_output_vec_builder = match tx {
-                Some(ref tx) => tx.clone().raw().outputs().as_builder(),
-                None => CellOutputVecBuilder::default(),
+                Some(ref tx) => {
+                    let mut builder = tx.clone().raw().outputs().as_builder();
+                    for output in new_cell_output_vec {
+                        builder = builder.push(output);
+                    }
+                    builder
+                }
+                None => {
+                    let mut builder = CellOutputVecBuilder::default();
+                    for output in new_cell_output_vec {
+                        builder = builder.push(output);
+                    }
+                    builder
+                }
             };
 
-            let script = ScriptBuilder::default()
-                .code_hash(
-                    Byte32::from_compatible_slice(
-                        decode_hex(
-                            CString::new(
-                                "64e62e0f847240e23bea2801af6c39a62be25b7dce522cef3462624fa260135e",
-                            )
-                            .unwrap()
-                            .as_c_str(),
-                        )?
-                        .as_slice(),
-                    )
-                    .unwrap(),
-                )
-                .args(
-                    Bytes::from_static(
-                        decode_hex(
-                            CString::new(
-                                "b5202efa0f2d250af66f0f571e4b8be8b272572663707a052907f8760112fe35",
-                            )
-                            .unwrap()
-                            .as_c_str(),
-                        )?
-                        .as_slice(),
-                    )
-                    .pack(),
-                )
-                .hash_type(ScriptHashType::Type.into())
-                .build();
-
-            let new_transfer_output = CellOutputBuilder::default()
-                // TODO: Set lock and capacity automatically in CCC.
-                .type_(
-                    ScriptOptBuilder::default()
-                        // TODO: load_script under run_script_level_script fails.
-                        // .set(Some(load_script()?))
-                        .set(Some(script))
-                        .build(),
-                )
-                .build();
+            let output_data_vec_builder = match tx {
+                Some(ref tx) => {
+                    let mut builder = tx.clone().raw().outputs_data().as_builder();
+                    for data in new_output_data_vec {
+                        builder = builder.push(data);
+                    }
+                    builder
+                }
+                None => {
+                    let mut builder = BytesVecBuilder::default();
+                    for data in new_output_data_vec {
+                        builder = builder.push(data);
+                    }
+                    builder
+                }
+            };
 
             Ok(Some(
                 tx_builder
                     .raw(
                         raw_tx_builder
-                            .outputs(cell_output_vec_builder.push(new_transfer_output).build())
+                            .outputs(cell_output_vec_builder.build())
+                            .outputs_data(output_data_vec_builder.build())
                             .build(),
                     )
                     .build(),
@@ -179,7 +166,83 @@ impl UDTExtended for PausableUDT {
         to_lock_vec: Vec<Script>,
         to_amount_vec: Vec<u128>,
     ) -> Result<Option<Transaction>, Error> {
-        todo!()
+        if should_fallback()? {
+            return Err(Error::SSRIMethodsArgsInvalid);
+        }
+        debug!("Entered UDT::mint");
+        let tx_builder = match tx {
+            Some(ref tx) => tx.clone().as_builder(),
+            None => TransactionBuilder::default(),
+        };
+        let raw_tx_builder = match tx {
+            Some(ref tx) => tx.clone().raw().as_builder(),
+            None => RawTransactionBuilder::default(),
+        };
+
+        let cell_output_vec_builder = match tx {
+            Some(ref tx) => tx.clone().raw().outputs().as_builder(),
+            None => CellOutputVecBuilder::default(),
+        };
+
+        let mut new_cell_output_vec = Vec::new();
+        let mut new_output_data_vec = Vec::new();
+        for (to_lock, to_amount) in to_lock_vec.iter().zip(to_amount_vec.iter()) {
+            let new_transfer_output = CellOutputBuilder::default()
+                .type_(
+                    ScriptOptBuilder::default()
+                        .set(Some(load_script()?))
+                        .build(),
+                )
+                .lock(to_lock.clone())
+                .build();
+            new_cell_output_vec.push(new_transfer_output);
+            new_output_data_vec.push(to_vec(to_amount, false)?.pack());
+        }
+
+        let cell_output_vec_builder = match tx {
+            Some(ref tx) => {
+                let mut builder = tx.clone().raw().outputs().as_builder();
+                for output in new_cell_output_vec {
+                    builder = builder.push(output);
+                }
+                builder
+            }
+            None => {
+                let mut builder = CellOutputVecBuilder::default();
+                for output in new_cell_output_vec {
+                    builder = builder.push(output);
+                }
+                builder
+            }
+        };
+
+        let output_data_vec_builder = match tx {
+            Some(ref tx) => {
+                let mut builder = tx.clone().raw().outputs_data().as_builder();
+                for data in new_output_data_vec {
+                    builder = builder.push(data);
+                }
+                builder
+            }
+            None => {
+                let mut builder = BytesVecBuilder::default();
+                for data in new_output_data_vec {
+                    builder = builder.push(data);
+                }
+                builder
+            }
+        };
+
+        Ok(Some(
+            tx_builder
+                .raw(
+                    raw_tx_builder
+                        .outputs(cell_output_vec_builder.build())
+                        .outputs_data(output_data_vec_builder.build())
+                        .build(),
+                )
+                .build(),
+        ))
     }
 
     // #[ssri_method(implemented = false)]
@@ -217,12 +280,106 @@ impl UDTExtended for PausableUDT {
 
 // #[ssri_module(base = "UDT")]
 impl UDTPausable for PausableUDT {
-    // #[ssri_method(level = "Transaction", transaction = true)]
+    // #[ssri_method(level = "cell", transaction = true)]
     fn pause(
         tx: Option<Transaction>,
         lock_hashes: Option<&Vec<[u8; 32]>>,
     ) -> Result<Option<Transaction>, Error> {
-        todo!()
+        if should_fallback()? {
+            return Err(Error::SSRIMethodsArgsInvalid);
+        }
+        if lock_hashes.is_none() {
+            return Err(Error::SSRIMethodsArgsInvalid);
+        }
+        let tx_builder = match tx {
+            Some(ref tx) => tx.clone().as_builder(),
+            None => TransactionBuilder::default(),
+        };
+        let raw_tx_builder = match tx {
+            Some(ref tx) => tx.clone().raw().as_builder(),
+            None => RawTransactionBuilder::default(),
+        };
+        let mut current_pausable_data = get_pausable_data();
+        let mut index = 0;
+        while let Some(next_type_hash) = current_pausable_data.next_type_hash {
+            let mut found = false;
+            index = 0;
+
+            while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
+                if type_hash == Some(next_type_hash) {
+                    current_pausable_data =
+                        from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
+                    found = true;
+                    break;
+                }
+                index += 1;
+            }
+
+            if !found {
+                let cell_output_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().outputs().as_builder();
+                        builder = builder.push(load_cell(0, Source::Input)?);
+                        builder
+                    }
+                    None => {
+                        let mut builder = CellOutputVecBuilder::default();
+                        builder = builder.push(load_cell(0, Source::Input)?);
+                        builder
+                    }
+                };
+                let new_output_data = match tx {
+                    Some(ref tx) => {
+                        let mut data: UDTPausableData =
+                            from_slice(&load_cell_data(0, Source::Input)?, true)?;
+                        data.pause_list.extend(lock_hashes.should_be_ok().clone());
+                        data
+                    }
+                    None => UDTPausableData {
+                        pause_list: lock_hashes.should_be_ok().clone(),
+                        next_type_hash: None,
+                    },
+                };
+
+                let output_data_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().outputs_data().as_builder();
+                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder
+                    }
+                    None => {
+                        let mut builder = BytesVecBuilder::default();
+                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder
+                    }
+                };
+
+                let cell_input_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().inputs().as_builder();
+                        builder = builder.push(load_input(0, Source::Input)?);
+                        builder
+                    }
+                    None => {
+                        let mut builder = CellInputVecBuilder::default();
+                        builder = builder.push(load_input(0, Source::Input)?);
+                        builder
+                    }
+                };
+                return Ok(Some(
+                    tx_builder
+                        .raw(
+                            raw_tx_builder
+                                .inputs(cell_input_vec_builder.build())
+                                .outputs(cell_output_vec_builder.build())
+                                .outputs_data(output_data_vec_builder.build())
+                                .build(),
+                        )
+                        .build(),
+                ));
+            }
+        }
+        Err(Error::SSRIMethodsArgsInvalid)
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
@@ -230,73 +387,208 @@ impl UDTPausable for PausableUDT {
         tx: Option<Transaction>,
         lock_hashes: Option<&Vec<[u8; 32]>>,
     ) -> Result<Option<Transaction>, Error> {
-        todo!()
+        if should_fallback()? {
+            return Err(Error::SSRIMethodsArgsInvalid);
+        }
+        if lock_hashes.is_none() {
+            return Err(Error::SSRIMethodsArgsInvalid);
+        }
+        let tx_builder = match tx {
+            Some(ref tx) => tx.clone().as_builder(),
+            None => TransactionBuilder::default(),
+        };
+        let raw_tx_builder = match tx {
+            Some(ref tx) => tx.clone().raw().as_builder(),
+            None => RawTransactionBuilder::default(),
+        };
+        let mut current_pausable_data = get_pausable_data();
+        let mut index = 0;
+        while let Some(next_type_hash) = current_pausable_data.next_type_hash {
+            let mut found = false;
+            index = 0;
+
+            while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
+                if type_hash == Some(next_type_hash) {
+                    current_pausable_data =
+                        from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
+                    found = true;
+                    break;
+                }
+                index += 1;
+            }
+
+            if !found {
+                let cell_output_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().outputs().as_builder();
+                        builder = builder.push(load_cell(0, Source::Input)?);
+                        builder
+                    }
+                    None => {
+                        let mut builder = CellOutputVecBuilder::default();
+                        builder = builder.push(load_cell(0, Source::Input)?);
+                        builder
+                    }
+                };
+                let new_output_data = match tx {
+                    Some(ref tx) => {
+                        let mut data: UDTPausableData =
+                            from_slice(&load_cell_data(0, Source::Input)?, true)?;
+                        // If lock hash is in pause list, remove it
+                        data.pause_list
+                            .retain(|x| !lock_hashes.should_be_ok().contains(x));
+                        data
+                    }
+                    None => {
+                        let mut data: UDTPausableData =
+                            from_slice(&load_cell_data(0, Source::Input)?, true)?;
+                        data.pause_list
+                            .retain(|x| !lock_hashes.should_be_ok().contains(x));
+                        data
+                    }
+                };
+
+                let output_data_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().outputs_data().as_builder();
+                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder
+                    }
+                    None => {
+                        let mut builder = BytesVecBuilder::default();
+                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder
+                    }
+                };
+
+                let cell_input_vec_builder = match tx {
+                    Some(ref tx) => {
+                        let mut builder = tx.clone().raw().inputs().as_builder();
+                        builder = builder.push(load_input(0, Source::Input)?);
+                        builder
+                    }
+                    None => {
+                        let mut builder = CellInputVecBuilder::default();
+                        builder = builder.push(load_input(0, Source::Input)?);
+                        builder
+                    }
+                };
+                return Ok(Some(
+                    tx_builder
+                        .raw(
+                            raw_tx_builder
+                                .inputs(cell_input_vec_builder.build())
+                                .outputs(cell_output_vec_builder.build())
+                                .outputs_data(output_data_vec_builder.build())
+                                .build(),
+                        )
+                        .build(),
+                ));
+            }
+        }
+        Err(Error::SSRIMethodsArgsInvalid)
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Error> {
         debug!("Entered is_paused");
         debug!("lock_hashes: {:?}", lock_hashes);
-        let mut current_pause_list = Some(get_pausable_data().pause_list.clone()); // Start with an owned copy of the pause list
+        let mut current_pausable_data = get_pausable_data();
+        // Return true if any of the lock hashes are in the pause list
+        if lock_hashes.iter().any(|x| current_pausable_data.pause_list.contains(x)) {
+            return Ok(true);
+        }
+        let mut seen_type_hashes: Vec<[u8; 32]> = Vec::new();
 
-        while let Some(ref pause_list) = current_pause_list {
-            debug!("Current pause list: {:?}", pause_list);
-            if pause_list.contains(&[0u8; 32]) {
-                debug!("Global pausing found");
-                return Ok(true);
-            }
-            for lock_hash in lock_hashes {
-                if pause_list.contains(lock_hash) {
-                    debug!("Lock hash found in pause list");
-                    return Ok(true);
-                }
+        while let Some(next_type_hash) = current_pausable_data.next_type_hash {
+            // Detect cycles
+            if !seen_type_hashes
+                .clone()
+                .into_iter()
+                .any(|x| x == next_type_hash)
+            {
+                return Err(Error::CyclicPauseList)?;
+            } else {
+                seen_type_hashes.push(next_type_hash);
             }
 
-            match get_pausable_data().next_type_hash {
-                Some(next_type_hash) => {
-                    let mut index = 0;
-                    while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
-                        if type_hash == Some(next_type_hash) {
-                            let next_data: UDTPausableData =
-                                from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
-                            current_pause_list = Some(next_data.pause_list);
+            // Find next node
+            let mut index = 0;
+            let mut found = false;
+
+            while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
+                if type_hash == Some(next_type_hash) {
+                    match load_cell_data(index, Source::CellDep) {
+                        Ok(data) => {
+                            current_pausable_data = from_slice(&data, false)?;
+                            // Return true if any of the lock hashes are in the pause list
+                            if lock_hashes
+                                .iter()
+                                .any(|x| current_pausable_data.pause_list.contains(x))
+                            {
+                                return Ok(true);
+                            }
+                            found = true;
                             break;
                         }
-                        index += 1;
+                        Err(e) => return Err(Error::InvalidPauseData),
                     }
                 }
-                None => {
-                    debug!("No more pause lists and lock hash not found");
-                    return Ok(false);
-                }
+                index += 1;
+            }
+
+            if !found {
+                return Err(Error::IncompletePauseList)?;
             }
         }
-        debug!("No pause list found and lock hash not found");
         Ok(false)
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
     fn enumerate_paused() -> Result<Vec<[u8; 32]>, Error> {
-        let mut aggregated_paused_list: Vec<[u8; 32]> = vec![];
-        aggregated_paused_list.extend(&get_pausable_data().pause_list.clone());
+        let mut aggregated_paused_list: Vec<[u8; 32]> = Vec::new();
+        let mut current_pausable_data = get_pausable_data();
+        let mut seen_type_hashes: Vec<[u8; 32]> = Vec::new();
 
-        while true {
-            match get_pausable_data().next_type_hash {
-                Some(next_type_hash) => {
-                    let mut index = 0;
-                    while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
-                        if type_hash == Some(next_type_hash) {
-                            let next_data: UDTPausableData =
-                                from_slice(&load_cell_data(index, Source::CellDep)?, false)?;
-                            aggregated_paused_list.extend(&next_data.pause_list);
+        // Add initial pause list
+        aggregated_paused_list.extend(&current_pausable_data.pause_list);
+
+        while let Some(next_type_hash) = current_pausable_data.next_type_hash {
+            // Detect cycles
+            if !seen_type_hashes
+                .clone()
+                .into_iter()
+                .any(|x| x == next_type_hash)
+            {
+                return Err(Error::CyclicPauseList)?;
+            } else {
+                seen_type_hashes.push(next_type_hash);
+            }
+
+            // Find next node
+            let mut index = 0;
+            let mut found = false;
+
+            while let Ok(type_hash) = load_cell_type_hash(index, Source::CellDep) {
+                if type_hash == Some(next_type_hash) {
+                    match load_cell_data(index, Source::CellDep) {
+                        Ok(data) => {
+                            current_pausable_data = from_slice(&data, false)?;
+                            aggregated_paused_list.extend(&current_pausable_data.pause_list);
+                            found = true;
+                            break;
                         }
+                        Err(e) => return Err(Error::InvalidPauseData),
                     }
                 }
-                None => {
-                    return Ok(aggregated_paused_list);
-                }
+                index += 1;
+            }
+
+            if !found {
+                return Err(Error::IncompletePauseList)?;
             }
         }
+
         Ok(aggregated_paused_list)
     }
 }

@@ -89,6 +89,8 @@ pub enum Error {
     NoUnpausePermission,
     AbortedFromPause,
     IncompletePauseList,
+    CyclicPauseList,
+    InvalidPauseData
 }
 
 impl From<SysError> for Error {

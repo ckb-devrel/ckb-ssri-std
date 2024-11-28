@@ -303,3 +303,10 @@ pub fn ssri_methods(input: TokenStream) -> TokenStream {
         }
     })
 }
+
+
+#[proc_macro]
+pub fn ssri_wasm(input: TokenStream) -> TokenStream {
+    // TODO: Export serializeStruct
+    todo!()
+}
