@@ -120,7 +120,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             
             let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
             match response_opt {
-                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),
             }
         },
@@ -156,7 +156,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             
             let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
             match response_opt {
-                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),
             }
         },
@@ -177,9 +177,9 @@ fn program_entry_wrap() -> Result<(), Error> {
                 tx = Some(parsed_tx);
             }
             
-            let response_opt = modules::PausableUDT::pause(tx, lock_hashes_vec)?;
+            let response_opt = modules::PausableUDT::pause(tx, Some(&lock_hashes_vec))?;
             match response_opt {
-                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),
             }
         },
@@ -200,9 +200,9 @@ fn program_entry_wrap() -> Result<(), Error> {
                 tx = Some(parsed_tx);
             }
             
-            let response_opt = modules::PausableUDT::unpause(tx, lock_hashes_vec)?;
+            let response_opt = modules::PausableUDT::unpause(tx, Some(&lock_hashes_vec))?;
             match response_opt {
-                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),
             }
         },
