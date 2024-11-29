@@ -81,7 +81,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             Ok(Cow::from(response.to_vec()))
         },
         "UDTPausable.is_paused" => {
-            let response = modules::PausableUDT::is_paused(&decode_u8_32_vector(decode_hex(argv[1].as_ref())?).map_err(|_|error::Error::InvalidArray)?)?;
+            let response = modules::PausableUDT::is_paused(&decode_u8_32_vector(decode_hex(argv[1].as_ref())?).map_err(|_|error::Error::SSRIMethodsArgsInvalid)?)?;
             Ok(Cow::from(vec!(response as u8)))
         },
         "UDTPausable.enumerate_paused" => {
@@ -119,6 +119,88 @@ fn program_entry_wrap() -> Result<(), Error> {
             }
             
             let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
+            match response_opt {
+                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                None => Err(Error::SSRIMethodsArgsInvalid),
+            }
+        },
+        "UDTExtended.mint" => {
+            debug!("program_entry_wrap | Entered UDTExtended.mint");
+            let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
+            let to_lock_vec: Vec<Script> = to_lock_bytes_vec
+                .into_iter()
+                .map(|bytes| Script::new_unchecked(bytes.as_bytes()))
+                .collect();
+            debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
+
+            let to_amount_bytes = decode_hex(argv[3].as_ref())?;
+            let to_amount_vec: Vec<u128> = decode_hex(argv[3].as_ref())?[4..]
+                .chunks(16)
+                .map(|chunk| {
+                    return u128::from_le_bytes(chunk.try_into().unwrap())}
+                )
+                .collect();
+            debug!("program_entry_wrap | to_amount_vec: {:?}", to_amount_vec);
+
+            if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
+                Err(Error::SSRIMethodsArgsInvalid)?;
+            }
+            
+            let mut tx: Option<Transaction> = None;
+            if argv[1].is_empty() {
+                tx = None;
+            } else {
+                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                tx = Some(parsed_tx);
+            }
+            
+            let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
+            match response_opt {
+                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                None => Err(Error::SSRIMethodsArgsInvalid),
+            }
+        },
+        "UDTPausable.pause" => {
+            debug!("program_entry_wrap | Entered UDTPausable.pause");
+            let lock_hashes_vec: Vec<[u8; 32]> = decode_u8_32_vector(decode_hex(argv[2].as_ref())?).map_err(|_|error::Error::InvalidArray)?;
+            debug!("program_entry_wrap | lock_hashes_vec: {:?}", lock_hashes_vec);
+
+            if argv[2].is_empty() {
+                Err(Error::SSRIMethodsArgsInvalid)?;
+            }
+            
+            let mut tx: Option<Transaction> = None;
+            if argv[1].is_empty() {
+                tx = None;
+            } else {
+                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                tx = Some(parsed_tx);
+            }
+            
+            let response_opt = modules::PausableUDT::pause(tx, lock_hashes_vec)?;
+            match response_opt {
+                Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
+                None => Err(Error::SSRIMethodsArgsInvalid),
+            }
+        },
+        "UDTPausable.unpause" => {
+            debug!("program_entry_wrap | Entered UDTPausable.unpause");
+            let lock_hashes_vec: Vec<[u8; 32]> = decode_u8_32_vector(decode_hex(argv[2].as_ref())?).map_err(|_|error::Error::InvalidArray)?;
+            debug!("program_entry_wrap | lock_hashes_vec: {:?}", lock_hashes_vec);
+
+            if argv[2].is_empty() {
+                Err(Error::SSRIMethodsArgsInvalid)?;
+            }
+            
+            let mut tx: Option<Transaction> = None;
+            if argv[1].is_empty() {
+                tx = None;
+            } else {
+                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                tx = Some(parsed_tx);
+            }
+            
+            let response_opt = modules::PausableUDT::unpause(tx, lock_hashes_vec)?;
             match response_opt {
                 Some(response) => Ok(Cow::from(response.as_slice().to_vec())),
                 None => Err(Error::SSRIMethodsArgsInvalid),
