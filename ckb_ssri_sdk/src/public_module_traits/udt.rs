@@ -35,6 +35,7 @@ pub struct UDTMetadataData {
     pub name: String,
     pub symbol: String,
     pub decimals: u8,
+    #[serde(with = "dynvec_serde")]
     pub extension_data_registry: Vec<UDTExtensionDataRegistry>,
 }
 
@@ -42,7 +43,6 @@ pub struct UDTMetadataData {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UDTExtensionDataRegistry {
     pub registry_key: String,
-    #[serde(with = "dynvec_serde")]
     pub data: Vec<u8>,
 }
 

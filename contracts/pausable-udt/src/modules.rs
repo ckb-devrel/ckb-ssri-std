@@ -11,14 +11,13 @@ use ckb_ssri_sdk::public_module_traits::udt::{
 use ckb_ssri_sdk::utils::should_fallback;
 // use ckb_ssri_sdk_proc_macro::{ssri_method, ssri_module};
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::bytes::Bytes;
 use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::{
-    Byte32, BytesVecBuilder, CellInputVecBuilder, CellOutput, CellOutputBuilder,
-    CellOutputVecBuilder, RawTransactionBuilder, Script, ScriptBuilder, ScriptOpt,
-    ScriptOptBuilder, Transaction, TransactionBuilder,
+    Byte as PackedByte, Byte32Vec, BytesVec, BytesVecBuilder, CellDepVec, CellInputVecBuilder,
+    CellOutput, CellOutputBuilder, CellOutputVecBuilder, RawTransactionBuilder, Script,
+    ScriptOptBuilder, Transaction, TransactionBuilder, Uint32, Uint64,
 };
-use ckb_std::ckb_types::prelude::{Builder, Entity, Pack, ShouldBeOk, Unpack};
+use ckb_std::ckb_types::{bytes::Bytes, prelude::*};
 use ckb_std::debug;
 use ckb_std::high_level::{
     decode_hex, load_cell, load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_input,
@@ -65,65 +64,71 @@ impl UDT for PausableUDT {
                 None => RawTransactionBuilder::default(),
             };
 
-            let mut new_cell_output_vec = Vec::new();
-            let mut new_output_data_vec = Vec::new();
-            for (to_lock, to_amount) in to_lock_vec.iter().zip(to_amount_vec.iter()) {
-                let new_transfer_output = CellOutputBuilder::default()
-                    .type_(
-                        ScriptOptBuilder::default()
-                            .set(Some(load_script()?))
-                            .build(),
-                    )
-                    .lock(to_lock.clone())
-                    .build();
-                new_cell_output_vec.push(new_transfer_output);
-                new_output_data_vec.push(to_vec(to_amount, false)?.pack());
-            }
-
-            let cell_output_vec_builder = match tx {
+            let cell_output_vec = match tx {
                 Some(ref tx) => {
-                    let mut builder = tx.clone().raw().outputs().as_builder();
-                    for output in new_cell_output_vec {
-                        builder = builder.push(output);
+                    let mut cell_output_vec_builder = tx.clone().raw().outputs().as_builder();
+                    for to_lock in to_lock_vec.iter() {
+                        let new_transfer_output = CellOutputBuilder::default()
+                            .type_(
+                                ScriptOptBuilder::default()
+                                    .set(Some(load_script()?))
+                                    .build(),
+                            )
+                            .capacity(Uint64::default())
+                            .lock(to_lock.clone())
+                            .build();
+                        debug!("New transfer output: {:?}", new_transfer_output);
+                        cell_output_vec_builder = cell_output_vec_builder.push(new_transfer_output);
                     }
-                    builder
+                    cell_output_vec_builder.build()
                 }
                 None => {
-                    let mut builder = CellOutputVecBuilder::default();
-                    for output in new_cell_output_vec {
-                        builder = builder.push(output);
+                    let mut cell_output_vec_builder = CellOutputVecBuilder::default();
+                    for to_lock in to_lock_vec.iter() {
+                        let new_transfer_output = CellOutputBuilder::default()
+                            .type_(
+                                ScriptOptBuilder::default()
+                                    .set(Some(load_script()?))
+                                    .build(),
+                            )
+                            .capacity(Uint64::default())
+                            .lock(to_lock.clone())
+                            .build();
+                        cell_output_vec_builder = cell_output_vec_builder.push(new_transfer_output);
                     }
-                    builder
+                    cell_output_vec_builder.build()
                 }
             };
-
-            let output_data_vec_builder = match tx {
+            let outputs_data = match tx {
                 Some(ref tx) => {
-                    let mut builder = tx.clone().raw().outputs_data().as_builder();
-                    for data in new_output_data_vec {
-                        builder = builder.push(data);
+                    let mut tx_builder = tx.clone().raw().outputs_data().as_builder();
+                    for to_amount in to_amount_vec.iter() {
+                        tx_builder = tx_builder.push(to_amount.pack().as_bytes().pack());
                     }
-                    builder
+                    tx_builder.build()
                 }
                 None => {
-                    let mut builder = BytesVecBuilder::default();
-                    for data in new_output_data_vec {
-                        builder = builder.push(data);
+                    let mut tx_builder = BytesVecBuilder::default();
+                    for to_amount in to_amount_vec.iter() {
+                        tx_builder = tx_builder.push(to_amount.pack().as_bytes().pack());
                     }
-                    builder
+                    tx_builder.build()
                 }
             };
-
-            Ok(Some(
-                tx_builder
-                    .raw(
-                        raw_tx_builder
-                            .outputs(cell_output_vec_builder.build())
-                            .outputs_data(output_data_vec_builder.build())
-                            .build(),
-                    )
-                    .build(),
-            ))
+            let response = tx_builder
+                .raw(
+                    raw_tx_builder
+                        .version(tx.clone().should_be_ok().raw().version())
+                        .cell_deps(tx.clone().should_be_ok().raw().cell_deps())
+                        .header_deps(tx.clone().should_be_ok().raw().header_deps())
+                        .inputs(tx.clone().should_be_ok().raw().inputs())
+                        .outputs(cell_output_vec)
+                        .outputs_data(outputs_data)
+                        .build(),
+                )
+                .witnesses(tx.clone().should_be_ok().witnesses())
+                .build();
+            Ok(Some(response))
         }
     }
 }
@@ -184,7 +189,7 @@ impl UDTExtended for PausableUDT {
             None => CellOutputVecBuilder::default(),
         };
 
-        let mut new_cell_output_vec = Vec::new();
+        let mut new_cell_output_vec: Vec<CellOutput> = Vec::new();
         let mut new_output_data_vec = Vec::new();
         for (to_lock, to_amount) in to_lock_vec.iter().zip(to_amount_vec.iter()) {
             let new_transfer_output = CellOutputBuilder::default()
@@ -196,7 +201,7 @@ impl UDTExtended for PausableUDT {
                 .lock(to_lock.clone())
                 .build();
             new_cell_output_vec.push(new_transfer_output);
-            new_output_data_vec.push(to_vec(to_amount, false)?.pack());
+            new_output_data_vec.push(to_amount);
         }
 
         let cell_output_vec_builder = match tx {
@@ -220,14 +225,14 @@ impl UDTExtended for PausableUDT {
             Some(ref tx) => {
                 let mut builder = tx.clone().raw().outputs_data().as_builder();
                 for data in new_output_data_vec {
-                    builder = builder.push(data);
+                    builder = builder.push(data.pack().as_bytes().pack());
                 }
                 builder
             }
             None => {
                 let mut builder = BytesVecBuilder::default();
                 for data in new_output_data_vec {
-                    builder = builder.push(data);
+                    builder = builder.push(data.pack().as_bytes().pack());
                 }
                 builder
             }
@@ -237,6 +242,10 @@ impl UDTExtended for PausableUDT {
             tx_builder
                 .raw(
                     raw_tx_builder
+                        .version(tx.clone().should_be_ok().raw().version())
+                        .cell_deps(tx.clone().should_be_ok().raw().cell_deps())
+                        .header_deps(tx.clone().should_be_ok().raw().header_deps())
+                        .inputs(tx.clone().should_be_ok().raw().inputs())
                         .outputs(cell_output_vec_builder.build())
                         .outputs_data(output_data_vec_builder.build())
                         .build(),
@@ -344,12 +353,12 @@ impl UDTPausable for PausableUDT {
                 let output_data_vec_builder = match tx {
                     Some(ref tx) => {
                         let mut builder = tx.clone().raw().outputs_data().as_builder();
-                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder = builder.push(to_vec(&new_output_data, false)?.pack());
                         builder
                     }
                     None => {
                         let mut builder = BytesVecBuilder::default();
-                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder = builder.push(to_vec(&new_output_data, false)?.pack());
                         builder
                     }
                 };
@@ -370,11 +379,15 @@ impl UDTPausable for PausableUDT {
                     tx_builder
                         .raw(
                             raw_tx_builder
+                                .version(Uint32::default())
+                                .cell_deps(CellDepVec::default())
+                                .header_deps(Byte32Vec::default())
                                 .inputs(cell_input_vec_builder.build())
                                 .outputs(cell_output_vec_builder.build())
                                 .outputs_data(output_data_vec_builder.build())
                                 .build(),
                         )
+                        .witnesses(BytesVec::default())
                         .build(),
                 ));
             }
@@ -451,12 +464,12 @@ impl UDTPausable for PausableUDT {
                 let output_data_vec_builder = match tx {
                     Some(ref tx) => {
                         let mut builder = tx.clone().raw().outputs_data().as_builder();
-                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder = builder.push(to_vec(&new_output_data, false)?.pack());
                         builder
                     }
                     None => {
                         let mut builder = BytesVecBuilder::default();
-                        builder = builder.push(to_vec(&new_output_data, true)?.pack());
+                        builder = builder.push(to_vec(&new_output_data, false)?.pack());
                         builder
                     }
                 };
@@ -495,7 +508,10 @@ impl UDTPausable for PausableUDT {
         debug!("lock_hashes: {:?}", lock_hashes);
         let mut current_pausable_data = get_pausable_data();
         // Return true if any of the lock hashes are in the pause list
-        if lock_hashes.iter().any(|x| current_pausable_data.pause_list.contains(x)) {
+        if lock_hashes
+            .iter()
+            .any(|x| current_pausable_data.pause_list.contains(x))
+        {
             return Ok(true);
         }
         let mut seen_type_hashes: Vec<[u8; 32]> = Vec::new();

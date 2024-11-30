@@ -10,7 +10,7 @@ use ckb_ssri_sdk::prelude::{decode_u8_32_vector, encode_u8_32_vector};
 use ckb_ssri_sdk::utils::should_fallback;
 use ckb_ssri_sdk_proc_macro::ssri_methods;
 use ckb_std::ckb_types::bytes::Bytes;
-use ckb_std::ckb_types::packed::{Byte32, Script, ScriptBuilder, Transaction, BytesVec};
+use ckb_std::ckb_types::packed::{Byte32, BytesVec, Script, ScriptBuilder, Transaction};
 use ckb_std::debug;
 #[cfg(not(test))]
 use ckb_std::default_alloc;
@@ -43,7 +43,12 @@ pub fn get_metadata() -> UDTMetadataData {
         name: String::from("UDT"),
         symbol: String::from("UDT"),
         decimals: 8,
-        extension_data_registry: vec![], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
+        extension_data_registry: vec![
+            UDTExtensionDataRegistry {
+                registry_key: String::from("UDTPausableData"),
+                data: to_vec(&get_pausable_data(), true).unwrap(),
+            },
+        ], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
     }
 }
 
@@ -93,7 +98,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
             let to_lock_vec: Vec<Script> = to_lock_bytes_vec
                 .into_iter()
-                .map(|bytes| Script::new_unchecked(bytes.as_bytes()))
+                .map(|bytes| Script::new_unchecked(bytes.unpack()))
                 .collect();
             debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
 
@@ -109,18 +114,21 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
-            
+
             let mut tx: Option<Transaction> = None;
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&Bytes::from_static(&decode_hex(argv[1].as_ref())?)).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
-            
+
             let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
             match response_opt {
-                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
+                Some(response) => {
+                    debug!("program_entry_wrap | response: {}", response);
+                    Ok(Cow::from(response.as_bytes().to_vec()))
+                },
                 None => Err(Error::SSRIMethodsArgsInvalid),
             }
         },
@@ -129,7 +137,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
             let to_lock_vec: Vec<Script> = to_lock_bytes_vec
                 .into_iter()
-                .map(|bytes| Script::new_unchecked(bytes.as_bytes()))
+                .map(|bytes| Script::new_unchecked(bytes.unpack()))
                 .collect();
             debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
 
@@ -145,7 +153,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
-            
+
             let mut tx: Option<Transaction> = None;
             if argv[1].is_empty() {
                 tx = None;
@@ -153,7 +161,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
                 tx = Some(parsed_tx);
             }
-            
+
             let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
             match response_opt {
                 Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
@@ -168,7 +176,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[2].is_empty() {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
-            
+
             let mut tx: Option<Transaction> = None;
             if argv[1].is_empty() {
                 tx = None;
@@ -176,7 +184,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
                 tx = Some(parsed_tx);
             }
-            
+
             let response_opt = modules::PausableUDT::pause(tx, Some(&lock_hashes_vec))?;
             match response_opt {
                 Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
@@ -191,15 +199,15 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[2].is_empty() {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
-            
+
             let mut tx: Option<Transaction> = None;
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&Bytes::from_static(&decode_hex(argv[1].as_ref())?)).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
-            
+
             let response_opt = modules::PausableUDT::unpause(tx, Some(&lock_hashes_vec))?;
             match response_opt {
                 Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),

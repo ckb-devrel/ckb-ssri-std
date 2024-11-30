@@ -3,7 +3,7 @@ use core::str::Utf8Error;
 use ckb_std::error::SysError;
 use ckb_ssri_sdk::SSRIError;
 use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
-use serde_molecule::molecule;
+use serde_molecule;
 
 /// Error
 #[repr(i8)]
@@ -28,6 +28,9 @@ pub enum Error {
     SSRIMethodRequireHigherLevel,
     InvalidVmVersion,
 
+    // * Molecule Error
+    // TODO: Unable to imple From<molecule::Error::VerificationError> for Error perhaps due to versioning.
+    MoleculeVerificationError,
 
     // * Serde Molecule Error
     SerdeMoleculeErrorWithMessage, 
@@ -181,4 +184,3 @@ impl From<UDTPausableError> for Error {
         }
     }
 }
-
