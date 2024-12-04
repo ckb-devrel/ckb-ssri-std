@@ -5,12 +5,16 @@
 extern crate alloc;
 
 use alloc::borrow::Cow;
+use alloc::ffi::CString;
 use ckb_ssri_sdk::prelude::{decode_u8_32_vector, encode_u8_32_vector};
 
 use ckb_ssri_sdk::utils::should_fallback;
 use ckb_ssri_sdk_proc_macro::ssri_methods;
 use ckb_std::ckb_types::bytes::Bytes;
-use ckb_std::ckb_types::packed::{Byte32, BytesVec, Script, ScriptBuilder, Transaction};
+use ckb_std::ckb_types::packed::{
+    Byte32, Bytes as PackedBytes, BytesVec, BytesVecBuilder, Script, ScriptBuilder, Transaction,
+};
+use ckb_std::ckb_types::prelude::Pack;
 use ckb_std::debug;
 #[cfg(not(test))]
 use ckb_std::default_alloc;
@@ -20,7 +24,8 @@ ckb_std::entry!(program_entry);
 default_alloc!();
 
 use ckb_ssri_sdk::public_module_traits::udt::{
-    UDTExtended, UDTMetadata, UDTMetadataData, UDTPausable, UDTPausableData, UDT,
+    UDTExtended, UDTExtensionDataRegistry, UDTMetadata, UDTMetadataData, UDTPausable,
+    UDTPausableData, UDT,
 };
 
 use alloc::string::String;
@@ -34,33 +39,47 @@ mod fallback;
 mod modules;
 mod utils;
 
+use ckb_std::high_level::decode_hex;
 use ckb_std::syscalls::set_content;
 use error::Error;
 use serde_molecule::{from_slice, to_vec};
 
-pub fn get_metadata() -> UDTMetadataData {
-    UDTMetadataData {
+pub fn get_metadata() -> Result<UDTMetadataData, Error> {
+    Ok(UDTMetadataData {
         name: String::from("UDT"),
         symbol: String::from("UDT"),
         decimals: 8,
-        extension_data_registry: vec![
-            UDTExtensionDataRegistry {
-                registry_key: String::from("UDTPausableData"),
-                data: to_vec(&get_pausable_data(), true).unwrap(),
-            },
-        ], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
-    }
+        extension_data_registry: vec![UDTExtensionDataRegistry {
+            registry_key: String::from("UDTPausableData"),
+            data: to_vec(&get_pausable_data()?, false).unwrap(),
+        }], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
+    })
 }
 
-pub fn get_pausable_data() -> UDTPausableData {
+pub fn get_pausable_data() -> Result<UDTPausableData, Error> {
     debug!("Entered get_pausable_data");
-    UDTPausableData {
+    Ok(UDTPausableData {
         pause_list: utils::format_pause_list(vec![
-            // Note: Paused lock hash for testing for ckb_ssri_cli. The address is ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp
-            "0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e",
+            // Note: Paused lock hash for testing for ckb_ssri_cli. The address is ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqdd3z25u024cj4d8rutkggjvw28r42rt0qx5z9aj
+            "0x62cb9a2e0b945a6b23067effebf3f5d6cd7a29f7c9a07021caf41cbc40358738",
         ]),
-        next_type_hash: None, // Type hash of another cell that also contains UDTPausableData
-    }
+        // Type hash of another cell that also contains UDTPausableData
+        // NOTE: External pause list used for testing purpose. It pauses ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp ("0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e")
+        next_type_hash: Some(
+            decode_hex(
+                &CString::new("0xddb008f52941d5aaab99aa56bd928a4ad0c5d11ae79c6c2b0dd065540a1cc89a")
+                    .map_err(|_| Error::InvalidPauseData)?
+                    .as_c_str()[2..],
+            )?
+            .try_into()
+            .map_err(|_| Error::InvalidPauseData)?,
+        ),
+        next_type_args: decode_hex(
+            &CString::new("0x1fccb60894d3ffbe1fc5640aca74e4283c3e1fd68ef037e2528af7b24f114931")
+                .map_err(|_| Error::InvalidPauseData)?
+                .as_c_str()[2..],
+        )?
+    })
 }
 
 fn program_entry_wrap() -> Result<(), Error> {
@@ -82,7 +101,11 @@ fn program_entry_wrap() -> Result<(), Error> {
         "UDTMetadata.decimals" => Ok(Cow::from(modules::PausableUDT::decimals()?.to_le_bytes().to_vec())),
         "UDT.balance" => Ok(Cow::from(modules::PausableUDT::balance()?.to_le_bytes().to_vec())),
         "UDTMetadata.get_extension_data" => {
-            let response = modules::PausableUDT::get_extension_data(String::from(argv[1].to_str()?))?;
+            let response = modules::PausableUDT::get_extension_data(
+                String::from_utf8(
+                    decode_hex(
+                        argv[1].as_ref()
+                    )?).map_err(|_|error::Error::SSRIMethodsArgsInvalid)?)?;
             Ok(Cow::from(response.to_vec()))
         },
         "UDTPausable.is_paused" => {
@@ -90,8 +113,13 @@ fn program_entry_wrap() -> Result<(), Error> {
             Ok(Cow::from(vec!(response as u8)))
         },
         "UDTPausable.enumerate_paused" => {
-            let response = encode_u8_32_vector(modules::PausableUDT::enumerate_paused()?.to_vec());
-            Ok(Cow::from(response.to_vec()))
+            let response = modules::PausableUDT::enumerate_paused()?;
+            let mut pausable_data_vec_builder = BytesVecBuilder::default();
+            for item in response {
+                pausable_data_vec_builder =
+                    pausable_data_vec_builder.push(to_vec(&item, false).unwrap().pack());
+            }
+            Ok(Cow::from(pausable_data_vec_builder.build().as_bytes().to_vec()))
         },
         "UDT.transfer" => {
             debug!("program_entry_wrap | Entered UDT.transfer");

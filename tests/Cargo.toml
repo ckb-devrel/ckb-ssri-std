@@ -11,3 +11,4 @@ tokio = { version = "1", features = ["macros"] }  # Required for async tests
 ckb-hash = "0.116.1"
 ckb-std = { version = "0.15.1", features = ["ckb2023"] }
 ckb_ssri_sdk = { path = "../ckb_ssri_sdk" }
+serde_molecule = { version = "1.1.0", default-features = false, features = ["alloc"] }

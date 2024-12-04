@@ -1864,6 +1864,7 @@ dependencies = [
  "ckb_ssri_sdk",
  "reqwest",
  "serde_json",
+ "serde_molecule",
  "tokio",
 ]
 

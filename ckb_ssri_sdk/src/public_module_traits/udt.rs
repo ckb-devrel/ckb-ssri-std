@@ -1,6 +1,6 @@
 use ckb_std::ckb_types::{
     bytes::Bytes,
-    packed::{Transaction, Script},
+    packed::{Transaction, Script, Bytes as PackedBytes},
 };
 extern crate alloc;
 
@@ -77,7 +77,7 @@ pub trait UDTExtended: UDT + UDTMetadata {
     ) -> Result<(), Self::Error>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct UDTExtendedData {}
 
 pub enum UDTExtendedError {
@@ -99,13 +99,14 @@ pub trait UDTPausable: UDT + UDTMetadata {
         lock_hashes: Option<&Vec<[u8; 32]>>,
     ) -> Result<Option<Transaction>, Self::Error>;
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Self::Error>;
-    fn enumerate_paused() -> Result<Vec<[u8; 32]>, Self::Error>;
+    fn enumerate_paused() -> Result<Vec<UDTPausableData>, Self::Error>;
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct UDTPausableData {
     pub pause_list: Vec<[u8; 32]>,
     pub next_type_hash: Option<[u8; 32]>,
+    pub next_type_args: Vec<u8>,
 }
 
 pub enum UDTPausableError {

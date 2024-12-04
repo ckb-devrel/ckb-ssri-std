@@ -137,23 +137,24 @@ impl UDT for PausableUDT {
 impl UDTMetadata for PausableUDT {
     // #[ssri_method(level = "Code")]
     fn name() -> Result<Bytes, Error> {
-        let metadata = get_metadata();
+        let metadata = get_metadata()?;
         Ok(Bytes::from(metadata.name.into_bytes()))
     }
     // #[ssri_method(level = "Code")]
     fn symbol() -> Result<Bytes, Error> {
-        let metadata = get_metadata();
+        let metadata = get_metadata()?;
         Ok(Bytes::from(metadata.symbol.into_bytes()))
     }
     // #[ssri_method(level = "Code")]
     fn decimals() -> Result<u8, Error> {
-        let metadata = get_metadata().clone();
+        let metadata = get_metadata()?.clone();
         Ok(metadata.decimals)
     }
 
     // #[ssri_method(level = "Code")]
     fn get_extension_data(registry_key: String) -> Result<Bytes, Error> {
-        let metadata = get_metadata();
+        debug!("Entered get_extension_data, registry_key: {}", registry_key);
+        let metadata = get_metadata()?;
         for extension_data in metadata.extension_data_registry {
             if extension_data.registry_key == registry_key {
                 return Ok(Bytes::from(extension_data.data));
@@ -308,7 +309,7 @@ impl UDTPausable for PausableUDT {
             Some(ref tx) => tx.clone().raw().as_builder(),
             None => RawTransactionBuilder::default(),
         };
-        let mut current_pausable_data = get_pausable_data();
+        let mut current_pausable_data = get_pausable_data()?;
         let mut index = 0;
         while let Some(next_type_hash) = current_pausable_data.next_type_hash {
             let mut found = false;
@@ -347,6 +348,7 @@ impl UDTPausable for PausableUDT {
                     None => UDTPausableData {
                         pause_list: lock_hashes.should_be_ok().clone(),
                         next_type_hash: None,
+                        next_type_args: Vec::new(),
                     },
                 };
 
@@ -379,9 +381,9 @@ impl UDTPausable for PausableUDT {
                     tx_builder
                         .raw(
                             raw_tx_builder
-                                .version(Uint32::default())
-                                .cell_deps(CellDepVec::default())
-                                .header_deps(Byte32Vec::default())
+                                .version(tx.clone().should_be_ok().raw().version())
+                                .cell_deps(tx.clone().should_be_ok().raw().cell_deps())
+                                .header_deps(tx.clone().should_be_ok().raw().header_deps())
                                 .inputs(cell_input_vec_builder.build())
                                 .outputs(cell_output_vec_builder.build())
                                 .outputs_data(output_data_vec_builder.build())
@@ -392,7 +394,51 @@ impl UDTPausable for PausableUDT {
                 ));
             }
         }
-        Err(Error::SSRIMethodsArgsInvalid)
+        // NOTE: This is code pause list only and creating a new pause data cell which needs to be pointed to by upgrading the contract code
+        let cell_output_vec_builder = match tx {
+            Some(ref tx) => {
+                let mut builder = tx.clone().raw().outputs().as_builder();
+                builder = builder.push(CellOutput::default());
+                builder
+            }
+            None => {
+                let mut builder = CellOutputVecBuilder::default();
+                builder = builder.push(CellOutput::default());
+                builder
+            }
+        };
+        let new_output_data = UDTPausableData {
+            pause_list: lock_hashes.should_be_ok().clone(),
+            next_type_hash: None,
+            next_type_args: Vec::new(),
+        };
+        let output_data_vec_builder = match tx {
+            Some(ref tx) => {
+                let mut builder = tx.clone().raw().outputs_data().as_builder();
+                builder = builder.push(to_vec(&new_output_data, false)?.pack());
+                builder
+            }
+            None => {
+                let mut builder = BytesVecBuilder::default();
+                builder = builder.push(to_vec(&new_output_data, false)?.pack());
+                builder
+            }
+        };
+        return Ok(Some(
+            tx_builder
+                .raw(
+                    raw_tx_builder
+                        .version(tx.clone().should_be_ok().raw().version())
+                        .cell_deps(tx.clone().should_be_ok().raw().cell_deps())
+                        .header_deps(tx.clone().should_be_ok().raw().header_deps())
+                        .inputs(tx.clone().should_be_ok().raw().inputs())
+                        .outputs(cell_output_vec_builder.build())
+                        .outputs_data(output_data_vec_builder.build())
+                        .build(),
+                )
+                .witnesses(BytesVec::default())
+                .build(),
+        ));
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
@@ -414,7 +460,7 @@ impl UDTPausable for PausableUDT {
             Some(ref tx) => tx.clone().raw().as_builder(),
             None => RawTransactionBuilder::default(),
         };
-        let mut current_pausable_data = get_pausable_data();
+        let mut current_pausable_data = get_pausable_data()?;
         let mut index = 0;
         while let Some(next_type_hash) = current_pausable_data.next_type_hash {
             let mut found = false;
@@ -506,7 +552,7 @@ impl UDTPausable for PausableUDT {
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Error> {
         debug!("Entered is_paused");
         debug!("lock_hashes: {:?}", lock_hashes);
-        let mut current_pausable_data = get_pausable_data();
+        let mut current_pausable_data = get_pausable_data()?;
         // Return true if any of the lock hashes are in the pause list
         if lock_hashes
             .iter()
@@ -518,7 +564,7 @@ impl UDTPausable for PausableUDT {
 
         while let Some(next_type_hash) = current_pausable_data.next_type_hash {
             // Detect cycles
-            if !seen_type_hashes
+            if seen_type_hashes
                 .clone()
                 .into_iter()
                 .any(|x| x == next_type_hash)
@@ -561,24 +607,24 @@ impl UDTPausable for PausableUDT {
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn enumerate_paused() -> Result<Vec<[u8; 32]>, Error> {
-        let mut aggregated_paused_list: Vec<[u8; 32]> = Vec::new();
-        let mut current_pausable_data = get_pausable_data();
+    fn enumerate_paused() -> Result<Vec<UDTPausableData>, Error> {
+        let mut pausable_data_vec: Vec<UDTPausableData> = Vec::new();
+        let mut current_pausable_data = get_pausable_data()?;
         let mut seen_type_hashes: Vec<[u8; 32]> = Vec::new();
 
         // Add initial pause list
-        aggregated_paused_list.extend(&current_pausable_data.pause_list);
+        pausable_data_vec.push(current_pausable_data.clone());
 
         while let Some(next_type_hash) = current_pausable_data.next_type_hash {
             // Detect cycles
-            if !seen_type_hashes
+            if seen_type_hashes
                 .clone()
                 .into_iter()
                 .any(|x| x == next_type_hash)
             {
                 return Err(Error::CyclicPauseList)?;
             } else {
-                seen_type_hashes.push(next_type_hash);
+                seen_type_hashes.push(next_type_hash.clone());
             }
 
             // Find next node
@@ -590,7 +636,7 @@ impl UDTPausable for PausableUDT {
                     match load_cell_data(index, Source::CellDep) {
                         Ok(data) => {
                             current_pausable_data = from_slice(&data, false)?;
-                            aggregated_paused_list.extend(&current_pausable_data.pause_list);
+                            pausable_data_vec.push(current_pausable_data.clone());
                             found = true;
                             break;
                         }
@@ -605,6 +651,6 @@ impl UDTPausable for PausableUDT {
             }
         }
 
-        Ok(aggregated_paused_list)
+        Ok(pausable_data_vec)
     }
 }
