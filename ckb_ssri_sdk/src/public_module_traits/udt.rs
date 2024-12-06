@@ -16,88 +16,35 @@ pub trait UDT {
         tx: Option<Transaction>,
         to_lock_vec: Vec<Script>,
         to_amount_vec: Vec<u128>,
-    ) -> Result<Option<Transaction>, Self::Error>;
-}
-pub const UDT_LEN: usize = 16;
-pub enum UDTError {
-    InsufficientBalance,
-}
-
-pub trait UDTMetadata: UDT {
+    ) -> Result<Transaction, Self::Error>;
+    fn verify_transfer() -> Result<(), Self::Error>;
     fn name() -> Result<Bytes, Self::Error>;
     fn symbol() -> Result<Bytes, Self::Error>;
     fn decimals() -> Result<u8, Self::Error>;
-    fn get_extension_data(registry_key: String) -> Result<Bytes, Self::Error>;
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UDTMetadataData {
-    pub name: String,
-    pub symbol: String,
-    pub decimals: u8,
-    #[serde(with = "dynvec_serde")]
-    pub extension_data_registry: Vec<UDTExtensionDataRegistry>,
-}
-
-// Note: This type is kept generic on purpose for future extensions.
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UDTExtensionDataRegistry {
-    pub registry_key: String,
-    pub data: Vec<u8>,
-}
-
-pub enum UDTMetadataError {
-    NameUndefined,
-    SymbolUndefined,
-    DecimalsUndefined,
-    ExtensionDataNotFound,
-}
-
-pub trait UDTExtended: UDT + UDTMetadata {
     fn mint(
         tx: Option<Transaction>,
         to_lock_vec: Vec<Script>,
         to_amount_vec: Vec<u128>,
-    ) -> Result<Option<Transaction>, Self::Error>;
-    fn approve(
-        tx: Option<Transaction>,
-        spender_lock_hash: Option<[u8; 32]>,
-        amount: Option<u128>,
-    ) -> Result<(), Self::Error>;
-    fn allowance(owner: Script, spender_lock_hash: [u8; 32]) -> Result<u128, Self::Error>;
-    fn increase_allowance(
-        tx: Option<Transaction>,
-        spender_lock_hash: Option<[u8; 32]>,
-        added_value: Option<u128>,
-    ) -> Result<(), Self::Error>;
-    fn decrease_allowance(
-        tx: Option<Transaction>,
-        spender_lock_hash: Option<[u8; 32]>,
-        subtracted_value: Option<u128>,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<Transaction, Self::Error>;
+    fn verify_mint() -> Result<(), Self::Error>;
 }
-
-#[derive(Serialize, Deserialize, Clone)]
-pub struct UDTExtendedData {}
-
-pub enum UDTExtendedError {
+pub const UDT_LEN: usize = 16;
+pub enum UDTError {
+    InsufficientBalance,
     NoMintPermission,
     NoBurnPermission,
-    NoApprovePermission,
-    NoIncreaseAllowancePermission,
-    NoDecreaseAllowancePermission,
 }
 
-pub trait UDTPausable: UDT + UDTMetadata {
+pub trait UDTPausable: UDT {
     /* NOTE: Pausing/Unpause without lock hashes should take effect on the global level */
     fn pause(
         tx: Option<Transaction>,
-        lock_hashes: Option<&Vec<[u8; 32]>>,
-    ) -> Result<Option<Transaction>, Self::Error>;
+        lock_hashes: &Vec<[u8; 32]>,
+    ) -> Result<Transaction, Self::Error>;
     fn unpause(
         tx: Option<Transaction>,
-        lock_hashes: Option<&Vec<[u8; 32]>>,
-    ) -> Result<Option<Transaction>, Self::Error>;
+        lock_hashes: &Vec<[u8; 32]>,
+    ) -> Result<Transaction, Self::Error>;
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Self::Error>;
     fn enumerate_paused() -> Result<Vec<UDTPausableData>, Self::Error>;
 }
@@ -105,18 +52,19 @@ pub trait UDTPausable: UDT + UDTMetadata {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct UDTPausableData {
     pub pause_list: Vec<[u8; 32]>,
-    pub next_type_hash: Option<[u8; 32]>,
-    pub next_type_args: Vec<u8>,
+    pub next_type_script: Option<ScriptLike>
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ScriptLike {
+    pub code_hash: [u8; 32],
+    pub hash_type: u8,
+    pub args: Vec<u8>,
+}
 pub enum UDTPausableError {
     NoPausePermission,
     NoUnpausePermission,
     AbortedFromPause,
     IncompletePauseList,
-}
-
-pub enum UDTExtensionDataRegistryRecords {
-    UDTPausableData,
-    UDTExtendedData,
+    CyclicPauseList,
 }

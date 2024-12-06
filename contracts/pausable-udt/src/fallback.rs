@@ -7,7 +7,10 @@ use crate::{
 use alloc::vec;
 use alloc::vec::Vec;
 use ckb_std::{
-    ckb_constants::Source, ckb_types::{bytes::Bytes, prelude::*}, debug, high_level::{load_cell_lock_hash, load_script}
+    ckb_constants::Source,
+    ckb_types::{bytes::Bytes, prelude::*},
+    debug,
+    high_level::{load_cell_lock_hash, load_script},
 };
 
 use ckb_ssri_sdk::public_module_traits::udt::{UDTPausable, UDT};
@@ -35,12 +38,11 @@ pub fn fallback() -> Result<(), Error> {
         return Err(Error::AbortedFromPause);
     }
 
-    if check_owner_mode(&args)? {
-        return Ok(());
-    }
-
-    match PausableUDT::transfer(None, vec![], vec![]) {
+    match PausableUDT::verify_mint() {
         Ok(_) => Ok(()),
-        Err(e) => Err(e),
+        Err(_) => match PausableUDT::verify_transfer() {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        },
     }
 }

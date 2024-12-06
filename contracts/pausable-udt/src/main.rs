@@ -23,10 +23,7 @@ ckb_std::entry!(program_entry);
 #[cfg(not(test))]
 default_alloc!();
 
-use ckb_ssri_sdk::public_module_traits::udt::{
-    UDTExtended, UDTExtensionDataRegistry, UDTMetadata, UDTMetadataData, UDTPausable,
-    UDTPausableData, UDT,
-};
+use ckb_ssri_sdk::public_module_traits::udt::{UDTPausable, UDTPausableData, UDT};
 
 use alloc::string::String;
 use alloc::vec;
@@ -40,21 +37,9 @@ mod modules;
 mod utils;
 
 use ckb_std::high_level::decode_hex;
-use ckb_std::syscalls::set_content;
+use ckb_std::syscalls::{pipe, write};
 use error::Error;
 use serde_molecule::{from_slice, to_vec};
-
-pub fn get_metadata() -> Result<UDTMetadataData, Error> {
-    Ok(UDTMetadataData {
-        name: String::from("UDT"),
-        symbol: String::from("UDT"),
-        decimals: 8,
-        extension_data_registry: vec![UDTExtensionDataRegistry {
-            registry_key: String::from("UDTPausableData"),
-            data: to_vec(&get_pausable_data()?, false).unwrap(),
-        }], // Store data in an external UDTMetadataData cell for greater flexibility in configuring your UDT.
-    })
-}
 
 pub fn get_pausable_data() -> Result<UDTPausableData, Error> {
     debug!("Entered get_pausable_data");
@@ -65,20 +50,21 @@ pub fn get_pausable_data() -> Result<UDTPausableData, Error> {
         ]),
         // Type hash of another cell that also contains UDTPausableData
         // NOTE: External pause list used for testing purpose. It pauses ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqgtlcnzzna2tqst7jw78egjpujn7hdxpackjmmdp ("0xd19228c64920eb8c3d79557d8ae59ee7a14b9d7de45ccf8bafacf82c91fc359e")
-        next_type_hash: Some(
-            decode_hex(
-                &CString::new("0xddb008f52941d5aaab99aa56bd928a4ad0c5d11ae79c6c2b0dd065540a1cc89a")
-                    .map_err(|_| Error::InvalidPauseData)?
-                    .as_c_str()[2..],
-            )?
-            .try_into()
-            .map_err(|_| Error::InvalidPauseData)?,
-        ),
-        next_type_args: decode_hex(
-            &CString::new("0x1fccb60894d3ffbe1fc5640aca74e4283c3e1fd68ef037e2528af7b24f114931")
-                .map_err(|_| Error::InvalidPauseData)?
-                .as_c_str()[2..],
-        )?
+        // next_type_hash: Some(
+        //     decode_hex(
+        //         &CString::new("0xddb008f52941d5aaab99aa56bd928a4ad0c5d11ae79c6c2b0dd065540a1cc89a")
+        //             .map_err(|_| Error::InvalidPauseData)?
+        //             .as_c_str()[2..],
+        //     )?
+        //     .try_into()
+        //     .map_err(|_| Error::InvalidPauseData)?,
+        // ),
+        // next_type_args: decode_hex(
+        //     &CString::new("0x1fccb60894d3ffbe1fc5640aca74e4283c3e1fd68ef037e2528af7b24f114931")
+        //         .map_err(|_| Error::InvalidPauseData)?
+        //         .as_c_str()[2..],
+        // )?
+        next_type_script: None,
     })
 }
 
@@ -96,18 +82,10 @@ fn program_entry_wrap() -> Result<(), Error> {
         invalid_method: Error::SSRIMethodsNotFound,
         invalid_args: Error::SSRIMethodsArgsInvalid,
         "SSRI.get_cell_deps" => Ok(Cow::from(&[0, 0, 0, 0][..])),
-        "UDTMetadata.name" => Ok(Cow::from(modules::PausableUDT::name()?.to_vec())),
-        "UDTMetadata.symbol" => Ok(Cow::from(modules::PausableUDT::symbol()?.to_vec())),
-        "UDTMetadata.decimals" => Ok(Cow::from(modules::PausableUDT::decimals()?.to_le_bytes().to_vec())),
+        "UDT.name" => Ok(Cow::from(modules::PausableUDT::name()?.to_vec())),
+        "UDT.symbol" => Ok(Cow::from(modules::PausableUDT::symbol()?.to_vec())),
+        "UDT.decimals" => Ok(Cow::from(modules::PausableUDT::decimals()?.to_le_bytes().to_vec())),
         "UDT.balance" => Ok(Cow::from(modules::PausableUDT::balance()?.to_le_bytes().to_vec())),
-        "UDTMetadata.get_extension_data" => {
-            let response = modules::PausableUDT::get_extension_data(
-                String::from_utf8(
-                    decode_hex(
-                        argv[1].as_ref()
-                    )?).map_err(|_|error::Error::SSRIMethodsArgsInvalid)?)?;
-            Ok(Cow::from(response.to_vec()))
-        },
         "UDTPausable.is_paused" => {
             let response = modules::PausableUDT::is_paused(&decode_u8_32_vector(decode_hex(argv[1].as_ref())?).map_err(|_|error::Error::SSRIMethodsArgsInvalid)?)?;
             Ok(Cow::from(vec!(response as u8)))
@@ -128,7 +106,6 @@ fn program_entry_wrap() -> Result<(), Error> {
                 .into_iter()
                 .map(|bytes| Script::new_unchecked(bytes.unpack()))
                 .collect();
-            debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
 
             let to_amount_bytes = decode_hex(argv[3].as_ref())?;
             let to_amount_vec: Vec<u128> = decode_hex(argv[3].as_ref())?[4..]
@@ -137,7 +114,6 @@ fn program_entry_wrap() -> Result<(), Error> {
                     return u128::from_le_bytes(chunk.try_into().unwrap())}
                 )
                 .collect();
-            debug!("program_entry_wrap | to_amount_vec: {:?}", to_amount_vec);
 
             if argv[2].is_empty() || argv[3].is_empty() || to_lock_vec.len() != to_amount_vec.len() {
                 Err(Error::SSRIMethodsArgsInvalid)?;
@@ -147,21 +123,14 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::from_compatible_slice(&Bytes::from_static(&decode_hex(argv[1].as_ref())?)).map_err(|_|Error::MoleculeVerificationError)?;
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&decode_hex(argv[1].as_ref())?).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
 
-            let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
-            match response_opt {
-                Some(response) => {
-                    debug!("program_entry_wrap | response: {}", response);
-                    Ok(Cow::from(response.as_bytes().to_vec()))
-                },
-                None => Err(Error::SSRIMethodsArgsInvalid),
-            }
+            Ok(Cow::from(modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?.as_bytes().to_vec()))
         },
-        "UDTExtended.mint" => {
-            debug!("program_entry_wrap | Entered UDTExtended.mint");
+        "UDT.mint" => {
+            debug!("program_entry_wrap | Entered UDT.mint");
             let to_lock_bytes_vec = BytesVec::new_unchecked(decode_hex(argv[2].as_ref())?.try_into().unwrap());
             let to_lock_vec: Vec<Script> = to_lock_bytes_vec
                 .into_iter()
@@ -186,15 +155,11 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&decode_hex(argv[1].as_ref())?).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
 
-            let response_opt = modules::PausableUDT::transfer(tx, to_lock_vec, to_amount_vec)?;
-            match response_opt {
-                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
-                None => Err(Error::SSRIMethodsArgsInvalid),
-            }
+            Ok(Cow::from(modules::PausableUDT::mint(tx, to_lock_vec, to_amount_vec)?.as_bytes().to_vec()))
         },
         "UDTPausable.pause" => {
             debug!("program_entry_wrap | Entered UDTPausable.pause");
@@ -209,15 +174,11 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::new_unchecked(Bytes::from_static(&decode_hex(argv[1].as_ref())?));
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&decode_hex(argv[1].as_ref())?).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
 
-            let response_opt = modules::PausableUDT::pause(tx, Some(&lock_hashes_vec))?;
-            match response_opt {
-                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
-                None => Err(Error::SSRIMethodsArgsInvalid),
-            }
+            Ok(Cow::from(modules::PausableUDT::pause(tx, &lock_hashes_vec)?.as_bytes().to_vec()))
         },
         "UDTPausable.unpause" => {
             debug!("program_entry_wrap | Entered UDTPausable.unpause");
@@ -232,19 +193,14 @@ fn program_entry_wrap() -> Result<(), Error> {
             if argv[1].is_empty() {
                 tx = None;
             } else {
-                let parsed_tx: Transaction = Transaction::from_compatible_slice(&Bytes::from_static(&decode_hex(argv[1].as_ref())?)).map_err(|_|Error::MoleculeVerificationError)?;
+                let parsed_tx: Transaction = Transaction::from_compatible_slice(&decode_hex(argv[1].as_ref())?).map_err(|_|Error::MoleculeVerificationError)?;
                 tx = Some(parsed_tx);
             }
-
-            let response_opt = modules::PausableUDT::unpause(tx, Some(&lock_hashes_vec))?;
-            match response_opt {
-                Some(response) => Ok(Cow::from(response.as_bytes().to_vec())),
-                None => Err(Error::SSRIMethodsArgsInvalid),
-            }
+            Ok(Cow::from(modules::PausableUDT::unpause(tx, &lock_hashes_vec)?.as_bytes().to_vec()))
         },
     )?;
-
-    set_content(&res)?;
+    let pipe = pipe()?;
+    write(pipe.1, &res)?;
     Ok(())
 }
 

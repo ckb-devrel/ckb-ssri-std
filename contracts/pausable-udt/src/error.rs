@@ -1,8 +1,8 @@
 use core::str::Utf8Error;
 
-use ckb_std::error::SysError;
+use ckb_ssri_sdk::public_module_traits::udt::{UDTError, UDTPausableError};
 use ckb_ssri_sdk::SSRIError;
-use ckb_ssri_sdk::public_module_traits::udt::{UDTMetadataError, UDTExtendedError, UDTPausableError, UDTError};
+use ckb_std::error::SysError;
 use serde_molecule;
 
 /// Error
@@ -33,7 +33,7 @@ pub enum Error {
     MoleculeVerificationError,
 
     // * Serde Molecule Error
-    SerdeMoleculeErrorWithMessage, 
+    SerdeMoleculeErrorWithMessage,
     /// Contains a general error message as a string.
     /// Occurs when the data length is incorrect while parsing a number or molecule header.
     MismatchedLength,
@@ -69,23 +69,9 @@ pub enum Error {
 
     // * UDT Error
     InsufficientBalance,
-
-    // * UDT Metadata Error
-    NameUndefined,
-    SymbolUndefined,
-    DecimalsUndefined,
-    TotalSupplyUndefined,
-    CapUndefined,
-    ExtensionDataNotFound,
-
-
-    // * UDT Extended Error
     NoTransferPermission,
     NoMintPermission,
     NoBurnPermission,
-    NoApprovePermission,
-    NoIncreaseAllowancePermission,
-    NoDecreaseAllowancePermission,
 
     // * UDT Pausable Error
     NoPausePermission,
@@ -93,7 +79,7 @@ pub enum Error {
     AbortedFromPause,
     IncompletePauseList,
     CyclicPauseList,
-    InvalidPauseData
+    InvalidPauseData,
 }
 
 impl From<SysError> for Error {
@@ -150,7 +136,7 @@ impl From<SSRIError> for Error {
             SSRIError::SSRIMethodsArgsInvalid => Self::SSRIMethodsNotImplemented,
             SSRIError::SSRIMethodsNotImplemented => Self::SSRIMethodsNotImplemented,
             SSRIError::SSRIMethodRequireHigherLevel => Self::SSRIMethodRequireHigherLevel,
-            SSRIError::InvalidVmVersion => Self::InvalidVmVersion
+            SSRIError::InvalidVmVersion => Self::InvalidVmVersion,
         }
     }
 }
@@ -159,17 +145,8 @@ impl From<UDTError> for Error {
     fn from(err: UDTError) -> Self {
         match err {
             UDTError::InsufficientBalance => Self::InsufficientBalance,
-        }
-    }
-}
-
-impl From<UDTMetadataError> for Error {
-    fn from(err: UDTMetadataError) -> Self {
-        match err {
-            UDTMetadataError::NameUndefined => Self::NameUndefined,
-            UDTMetadataError::SymbolUndefined => Self::SymbolUndefined,
-            UDTMetadataError::DecimalsUndefined => Self::DecimalsUndefined,
-            UDTMetadataError::ExtensionDataNotFound => Self::ExtensionDataNotFound,
+            UDTError::NoMintPermission => Self::NoMintPermission,
+            UDTError::NoBurnPermission => Self::NoBurnPermission,
         }
     }
 }
@@ -181,6 +158,7 @@ impl From<UDTPausableError> for Error {
             UDTPausableError::NoUnpausePermission => Self::NoUnpausePermission,
             UDTPausableError::AbortedFromPause => Self::AbortedFromPause,
             UDTPausableError::IncompletePauseList => Self::IncompletePauseList,
+            UDTPausableError::CyclicPauseList => Self::CyclicPauseList,
         }
     }
 }
