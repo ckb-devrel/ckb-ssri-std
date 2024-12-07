@@ -22,14 +22,19 @@ fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
     }
 }
 
-/// TODO: Update doc
+/// Find an OutPoint by searching for a cell with a specific type script
 ///
-/// Return the cell or a syscall error
+/// Searches the transaction for a cell that matches the given type script
+/// and returns its OutPoint if found.
 ///
 /// # Arguments
 ///
-/// * `index` - index
-/// * `source` - source
+/// * `type_script` - The Script to search for as a cell's type script
+///
+/// # Returns
+///
+/// * `Ok(OutPoint)` - The OutPoint of the first matching cell
+/// * `Err(SysError)` - A system error if the operation fails
 ///
 /// # Example
 ///
@@ -37,7 +42,14 @@ fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
 /// let out_point = find_out_point_by_type(type_script).unwrap();
 /// ```
 ///
-/// **Note:** This function can panic if the underlying data is too large,
+/// # Errors
+///
+/// * Returns `SysError::ItemMissing` if no cell with matching type script is found
+/// * Returns `SysError::Encoding` if the OutPoint data is malformed
+///
+/// # Panics
+///
+/// This function can panic if the underlying data is too large,
 /// potentially causing an out-of-memory error.
 pub fn find_out_point_by_type(type_script: Script) -> Result<OutPoint, SysError> {
     let mut data = [0u8; OutPoint::TOTAL_SIZE];
@@ -48,22 +60,34 @@ pub fn find_out_point_by_type(type_script: Script) -> Result<OutPoint, SysError>
     }
 }
 
-/// TODO: Update doc
+/// Find a cell by its OutPoint
 ///
-/// Return the cell or a syscall error
+/// Retrieves the CellOutput of a cell identified by the given OutPoint.
 ///
 /// # Arguments
 ///
-/// * `index` - index
-/// * `source` - source
+/// * `out_point` - The OutPoint identifying the cell to find
+///
+/// # Returns
+///
+/// * `Ok(CellOutput)` - The cell's output data if found
+/// * `Err(SysError)` - A system error if the operation fails
 ///
 /// # Example
 ///
 /// ```
-/// let cell_output = load_cell(0, Source::Input).unwrap();
+/// let out_point = OutPoint::new(...);
+/// let cell_output = find_cell_by_out_point(out_point).unwrap();
 /// ```
 ///
-/// **Note:** This function can panic if the underlying data is too large,
+/// # Errors
+///
+/// * Returns `SysError::ItemMissing` if the cell cannot be found
+/// * Returns `SysError::Encoding` if the CellOutput data is malformed
+///
+/// # Panics
+///
+/// This function can panic if the underlying data is too large,
 /// potentially causing an out-of-memory error.
 pub fn find_cell_by_out_point(out_point: OutPoint) -> Result<CellOutput, SysError> {
     let data =
@@ -75,20 +99,34 @@ pub fn find_cell_by_out_point(out_point: OutPoint) -> Result<CellOutput, SysErro
     }
 }
 
-/// TODO: Update doc
+/// Find cell data by OutPoint
+///
+/// Retrieves the data contained in a cell identified by the given OutPoint.
 ///
 /// # Arguments
 ///
-/// * `index` - index
-/// * `source` - source
+/// * `out_point` - The OutPoint identifying the cell whose data to retrieve
+///
+/// # Returns
+///
+/// * `Ok(Vec<u8>)` - The cell's data as a byte vector if found
+/// * `Err(SysError)` - A system error if the operation fails
 ///
 /// # Example
 ///
 /// ```
-/// let data = load_cell_data(index, source).unwrap();
+/// let out_point = OutPoint::new(...);
+/// let data = find_cell_data_by_out_point(out_point).unwrap();
 /// ```
 ///
-/// **Note:** This function can panic if the underlying data is too large,
+/// # Errors
+///
+/// * Returns `SysError::ItemMissing` if the cell cannot be found
+/// * Returns `SysError::LengthNotEnough` if the data buffer is too small
+///
+/// # Panics
+///
+/// This function can panic if the underlying data is too large,
 /// potentially causing an out-of-memory error.
 pub fn find_cell_data_by_out_point(out_point: OutPoint) -> Result<Vec<u8>, SysError> {
     load_data(|buf, offset| syscalls::find_cell_data_by_out_point(buf, out_point.as_slice()))
