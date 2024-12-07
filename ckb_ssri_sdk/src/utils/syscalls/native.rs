@@ -105,15 +105,26 @@ fn build_syscall_result(
 }
 
 
-/// TODO: Update doc
-/// Load cell data, read cell data
+/// Find an OutPoint by searching for a specific type script
 ///
-/// Return the loaded data length or a syscall error
+/// Searches for a cell with the given type script and returns its OutPoint.
+/// The OutPoint data is written to the provided buffer.
 ///
 /// # Arguments
 ///
-/// * `buf` - a writable buf used to receive the data
-/// * `type_script` - the type script used to find the outpoint
+/// * `buf` - A mutable buffer to receive the OutPoint data
+/// * `type_script` - The serialized type script to search for
+///
+/// # Returns
+///
+/// * `Ok(usize)` - The actual length of the OutPoint data written to the buffer
+/// * `Err(SysError)` - A system error if the operation fails
+///
+/// # Errors
+///
+/// Returns `SysError::LengthNotEnough` if the buffer is too small to hold the data
+/// Returns `SysError::IndexOutOfBound` if the type script is invalid
+/// Returns `SysError::ItemMissing` if no matching cell is found
 pub fn find_out_point_by_type(
     buf: &mut [u8],
     type_script: &[u8],
@@ -130,15 +141,26 @@ pub fn find_out_point_by_type(
     )
 }
 
-/// TODO: Update doc
-/// Load cell data, read cell data
+/// Find a cell by its OutPoint
 ///
-/// Return the loaded data length or a syscall error
+/// Retrieves cell information using the specified OutPoint.
+/// The cell data is written to the provided buffer.
 ///
 /// # Arguments
 ///
-/// * `buf` - a writable buf used to receive the data
-/// * `out_point` - the out point used to find the cell
+/// * `buf` - A mutable buffer to receive the cell data
+/// * `out_point` - The serialized OutPoint identifying the cell to find
+///
+/// # Returns
+///
+/// * `Ok(usize)` - The actual length of the cell data written to the buffer
+/// * `Err(SysError)` - A system error if the operation fails
+///
+/// # Errors
+///
+/// Returns `SysError::LengthNotEnough` if the buffer is too small to hold the data
+/// Returns `SysError::IndexOutOfBound` if the OutPoint is invalid
+/// Returns `SysError::ItemMissing` if the cell cannot be found
 pub fn find_cell_by_out_point(
     buf: &mut [u8],
     out_point: &[u8],
@@ -155,15 +177,26 @@ pub fn find_cell_by_out_point(
     )
 }
 
-/// TODO: Update doc
-/// Load cell data, read cell data
+/// Find cell data by OutPoint
 ///
-/// Return the loaded data length or a syscall error
+/// Retrieves the data contained in a cell identified by the specified OutPoint.
+/// The cell's data is written to the provided buffer.
 ///
 /// # Arguments
 ///
-/// * `buf` - a writable buf used to receive the data
-/// * `out_point` - the out point used to find the cell data
+/// * `buf` - A mutable buffer to receive the cell's data
+/// * `out_point` - The serialized OutPoint identifying the cell whose data to retrieve
+///
+/// # Returns
+///
+/// * `Ok(usize)` - The actual length of the cell data written to the buffer
+/// * `Err(SysError)` - A system error if the operation fails
+///
+/// # Errors
+///
+/// Returns `SysError::LengthNotEnough` if the buffer is too small to hold the data
+/// Returns `SysError::IndexOutOfBound` if the OutPoint is invalid
+/// Returns `SysError::ItemMissing` if the cell cannot be found
 pub fn find_cell_data_by_out_point(
     buf: &mut [u8],
     out_point: &[u8],
