@@ -91,7 +91,9 @@ fn program_entry_wrap() -> Result<(), Error> {
             Ok(Cow::from(vec!(response as u8)))
         },
         "UDTPausable.enumerate_paused" => {
-            let response = modules::PausableUDT::enumerate_paused()?;
+            let offset = u64::from_le_bytes(decode_hex(argv[1].as_ref())?[..4].try_into().unwrap_or_default());
+            let limit = u64::from_le_bytes(decode_hex(argv[2].as_ref())?[..4].try_into().unwrap_or_default());
+            let response = modules::PausableUDT::enumerate_paused(offset, limit)?;
             let mut pausable_data_vec_builder = BytesVecBuilder::default();
             for item in response {
                 pausable_data_vec_builder =

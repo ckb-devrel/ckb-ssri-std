@@ -46,7 +46,7 @@ pub trait UDTPausable: UDT {
         lock_hashes: &Vec<[u8; 32]>,
     ) -> Result<Transaction, Self::Error>;
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Self::Error>;
-    fn enumerate_paused() -> Result<Vec<UDTPausableData>, Self::Error>;
+    fn enumerate_paused(offset: u64, limit: u64) -> Result<Vec<UDTPausableData>, Self::Error>;
 }
 
 #[derive(Serialize, Deserialize, Clone)]

@@ -1,6 +1,7 @@
 use crate::error::Error;
 use crate::get_pausable_data;
 use crate::utils::{check_owner_mode, collect_inputs_amount, collect_outputs_amount};
+use alloc::borrow::ToOwned;
 use alloc::ffi::CString;
 use alloc::string::String;
 use alloc::vec;
@@ -209,7 +210,7 @@ impl UDTPausable for PausableUDT {
             Some(ref tx) => tx.clone().raw().as_builder(),
             None => RawTransactionBuilder::default(),
         };
-        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused()?;
+        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused(0, 0)?;
 
         let new_cell_output: CellOutput;
         let new_output_data: UDTPausableData;
@@ -234,20 +235,23 @@ impl UDTPausable for PausableUDT {
                         .should_be_ok();
                     let last_cell_type_script = ScriptBuilder::default()
                         .code_hash(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .code_hash
                                 .pack(),
                         )
                         .hash_type(Byte::new(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .hash_type,
                         ))
                         .args(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .args
@@ -301,7 +305,7 @@ impl UDTPausable for PausableUDT {
             Some(ref tx) => tx.clone().raw().as_builder(),
             None => RawTransactionBuilder::default(),
         };
-        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused()?;
+        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused(0, 0)?;
 
         let new_cell_output: CellOutput;
         let new_output_data: UDTPausableData;
@@ -319,27 +323,30 @@ impl UDTPausable for PausableUDT {
             }
             Err(_) => {
                 if pausable_data_vec.len() < 2 {
-                    return Err(Error::SSRIMethodsArgsInvalid)
+                    return Err(Error::SSRIMethodsArgsInvalid);
                 } else {
                     let second_last_pausable_data = pausable_data_vec
                         .get(pausable_data_vec.len() - 2)
                         .should_be_ok();
                     let last_cell_type_script = ScriptBuilder::default()
                         .code_hash(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .code_hash
                                 .pack(),
                         )
                         .hash_type(Byte::new(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .hash_type,
                         ))
                         .args(
-                            second_last_pausable_data.clone()
+                            second_last_pausable_data
+                                .clone()
                                 .next_type_script
                                 .should_be_ok()
                                 .args
@@ -391,10 +398,14 @@ impl UDTPausable for PausableUDT {
     fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Error> {
         debug!("Entered is_paused");
         debug!("lock_hashes: {:?}", lock_hashes);
-        
-        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused()?;
+
+        let pausable_data_vec: Vec<UDTPausableData> = Self::enumerate_paused(0, 0)?;
         for pausable_data in pausable_data_vec {
-            if pausable_data.pause_list.into_iter().any(|x| lock_hashes.contains(&x)) {
+            if pausable_data
+                .pause_list
+                .into_iter()
+                .any(|x| lock_hashes.contains(&x))
+            {
                 return Ok(true);
             }
         }
@@ -402,24 +413,48 @@ impl UDTPausable for PausableUDT {
     }
 
     // #[ssri_method(level = "Transaction", transaction = true)]
-    fn enumerate_paused() -> Result<Vec<UDTPausableData>, Error> {
+    fn enumerate_paused(mut offset: u64, limit: u64) -> Result<Vec<UDTPausableData>, Error> {
         let mut pausable_data_vec: Vec<UDTPausableData> = Vec::new();
         let mut current_pausable_data = get_pausable_data()?;
         let mut seen_type_hashes: Vec<Byte32> = Vec::new();
-
-        // Add initial pause list
-        pausable_data_vec.push(current_pausable_data.clone());
-
+        let mut entries_counter = 0;
+    
+        // Handle initial data
+        if current_pausable_data.pause_list.len() < offset as usize {
+            offset -= current_pausable_data.pause_list.len() as u64;
+        } else {
+            let mut modified_data = current_pausable_data.clone();
+            modified_data.pause_list = modified_data.pause_list
+                .into_iter()
+                .skip(offset as usize)
+                .collect();
+            if limit != 0 && modified_data.pause_list.len() as u64 > limit {
+                modified_data.pause_list = modified_data.pause_list
+                    .into_iter()
+                    .take(limit as usize)
+                    .collect();
+            }
+            entries_counter += modified_data.pause_list.len() as u64;
+            if entries_counter > 0 {
+                pausable_data_vec.push(modified_data);
+            }
+            offset = 0;
+            if limit != 0 && entries_counter >= limit {
+                return Ok(pausable_data_vec);
+            }
+        }
+    
         while let Some(next_type_script) = current_pausable_data.next_type_script {
             let mut next_type_script: Script = Script::new_builder()
                 .code_hash(next_type_script.code_hash.pack())
                 .hash_type(Byte::new(next_type_script.hash_type))
                 .args(next_type_script.args.pack())
                 .build();
-            let next_pausable_data: UDTPausableData = from_slice(
+            let mut next_pausable_data: UDTPausableData = from_slice(
                 &find_cell_data_by_out_point(find_out_point_by_type(next_type_script.clone())?)?,
                 false,
             )?;
+    
             if seen_type_hashes
                 .clone()
                 .into_iter()
@@ -429,9 +464,36 @@ impl UDTPausable for PausableUDT {
             } else {
                 seen_type_hashes.push(next_type_script.calc_script_hash());
             }
-            pausable_data_vec.push(next_pausable_data.clone());
-            current_pausable_data = next_pausable_data;
+    
+            if next_pausable_data.pause_list.len() < offset as usize {
+                offset -= next_pausable_data.pause_list.len() as u64;
+                current_pausable_data = next_pausable_data;
+            } else {
+                next_pausable_data.pause_list = next_pausable_data
+                    .pause_list
+                    .into_iter()
+                    .skip(offset as usize)
+                    .collect();
+                pausable_data_vec.push(next_pausable_data.clone());
+                entries_counter += next_pausable_data.pause_list.len() as u64;
+                offset = 0;
+                if limit != 0 && entries_counter >= limit {
+                    break;
+                }
+                current_pausable_data = next_pausable_data;
+            }
         }
+    
+        if entries_counter > limit && limit != 0 {
+            if let Some(last) = pausable_data_vec.last_mut() {
+                last.pause_list = last.pause_list
+                    .clone()
+                    .into_iter()
+                    .take(last.pause_list.len() - (entries_counter - limit) as usize)
+                    .collect();
+            }
+        }
+    
         Ok(pausable_data_vec)
     }
 }
