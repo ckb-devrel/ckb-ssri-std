@@ -1,31 +1,22 @@
 use crate::error::Error;
 use crate::get_pausable_data;
 use crate::utils::{check_owner_mode, collect_inputs_amount, collect_outputs_amount};
-use alloc::borrow::ToOwned;
-use alloc::ffi::CString;
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 use ckb_ssri_sdk::public_module_traits::udt::{UDTPausable, UDTPausableData, UDT};
 use ckb_ssri_sdk::utils::high_level::{
     find_cell_by_out_point, find_cell_data_by_out_point, find_out_point_by_type,
 };
-use ckb_ssri_sdk::utils::should_fallback;
 // use ckb_ssri_sdk_proc_macro::{ssri_method, ssri_module};
 use ckb_std::ckb_constants::Source;
-use ckb_std::ckb_types::core::ScriptHashType;
 use ckb_std::ckb_types::packed::{
-    Byte as PackedByte, Byte, Byte32, Byte32Vec, BytesVec, BytesVecBuilder, CellDepVec,
-    CellInputVecBuilder, CellOutput, CellOutputBuilder, CellOutputVecBuilder,
+    Byte, Byte32, BytesVec, BytesVecBuilder, CellOutput, CellOutputBuilder, CellOutputVecBuilder,
     RawTransactionBuilder, Script, ScriptBuilder, ScriptOptBuilder, Transaction,
-    TransactionBuilder, Uint32, Uint64,
+    TransactionBuilder, Uint64,
 };
 use ckb_std::ckb_types::{bytes::Bytes, prelude::*};
 use ckb_std::debug;
-use ckb_std::high_level::{
-    decode_hex, load_cell, load_cell_data, load_cell_lock_hash, load_cell_type_hash, load_input,
-    load_script, load_transaction,
-};
+use ckb_std::high_level::{load_cell, load_cell_data, load_script};
 use serde_molecule::{from_slice, to_vec};
 
 pub struct PausableUDT;
@@ -134,11 +125,6 @@ impl UDT for PausableUDT {
         let raw_tx_builder = match tx {
             Some(ref tx) => tx.clone().raw().as_builder(),
             None => RawTransactionBuilder::default(),
-        };
-
-        let cell_output_vec_builder = match tx {
-            Some(ref tx) => tx.clone().raw().outputs().as_builder(),
-            None => CellOutputVecBuilder::default(),
         };
 
         let mut new_cell_output_vec: Vec<CellOutput> = Vec::new();
@@ -418,18 +404,20 @@ impl UDTPausable for PausableUDT {
         let mut current_pausable_data = get_pausable_data()?;
         let mut seen_type_hashes: Vec<Byte32> = Vec::new();
         let mut entries_counter = 0;
-    
+
         // Handle initial data
         if current_pausable_data.pause_list.len() < offset as usize {
             offset -= current_pausable_data.pause_list.len() as u64;
         } else {
             let mut modified_data = current_pausable_data.clone();
-            modified_data.pause_list = modified_data.pause_list
+            modified_data.pause_list = modified_data
+                .pause_list
                 .into_iter()
                 .skip(offset as usize)
                 .collect();
             if limit != 0 && modified_data.pause_list.len() as u64 > limit {
-                modified_data.pause_list = modified_data.pause_list
+                modified_data.pause_list = modified_data
+                    .pause_list
                     .into_iter()
                     .take(limit as usize)
                     .collect();
@@ -443,9 +431,9 @@ impl UDTPausable for PausableUDT {
                 return Ok(pausable_data_vec);
             }
         }
-    
+
         while let Some(next_type_script) = current_pausable_data.next_type_script {
-            let mut next_type_script: Script = Script::new_builder()
+            let next_type_script: Script = Script::new_builder()
                 .code_hash(next_type_script.code_hash.pack())
                 .hash_type(Byte::new(next_type_script.hash_type))
                 .args(next_type_script.args.pack())
@@ -454,7 +442,7 @@ impl UDTPausable for PausableUDT {
                 &find_cell_data_by_out_point(find_out_point_by_type(next_type_script.clone())?)?,
                 false,
             )?;
-    
+
             if seen_type_hashes
                 .clone()
                 .into_iter()
@@ -464,7 +452,7 @@ impl UDTPausable for PausableUDT {
             } else {
                 seen_type_hashes.push(next_type_script.calc_script_hash());
             }
-    
+
             if next_pausable_data.pause_list.len() < offset as usize {
                 offset -= next_pausable_data.pause_list.len() as u64;
                 current_pausable_data = next_pausable_data;
@@ -483,17 +471,18 @@ impl UDTPausable for PausableUDT {
                 current_pausable_data = next_pausable_data;
             }
         }
-    
+
         if entries_counter > limit && limit != 0 {
             if let Some(last) = pausable_data_vec.last_mut() {
-                last.pause_list = last.pause_list
+                last.pause_list = last
+                    .pause_list
                     .clone()
                     .into_iter()
                     .take(last.pause_list.len() - (entries_counter - limit) as usize)
                     .collect();
             }
         }
-    
+
         Ok(pausable_data_vec)
     }
 }

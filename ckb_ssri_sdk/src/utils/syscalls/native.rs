@@ -3,7 +3,6 @@ use core::arch::asm;
 
 use ckb_std::{ckb_constants::SYS_VM_VERSION, debug, error::SysError};
 
-use crate::SSRIError;
 
 pub const SYS_FIND_OUT_POINT_BY_TYPE: u64 = 2277;
 pub const SYS_FIND_CELL_BY_OUT_POINT: u64 = 2287;

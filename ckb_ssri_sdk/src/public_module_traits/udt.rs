@@ -1,6 +1,6 @@
 use ckb_std::ckb_types::{
     bytes::Bytes,
-    packed::{Transaction, Script, Bytes as PackedBytes},
+    packed::{Transaction, Script},
 };
 extern crate alloc;
 

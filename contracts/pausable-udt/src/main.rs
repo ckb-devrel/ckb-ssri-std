@@ -6,13 +6,12 @@ extern crate alloc;
 
 use alloc::borrow::Cow;
 use alloc::ffi::CString;
-use ckb_ssri_sdk::prelude::{decode_u8_32_vector, encode_u8_32_vector};
+use ckb_ssri_sdk::prelude::decode_u8_32_vector;
 
 use ckb_ssri_sdk::utils::should_fallback;
 use ckb_ssri_sdk_proc_macro::ssri_methods;
-use ckb_std::ckb_types::bytes::Bytes;
 use ckb_std::ckb_types::packed::{
-    Byte32, Bytes as PackedBytes, BytesVec, BytesVecBuilder, Script, ScriptBuilder, Transaction,
+    BytesVec, BytesVecBuilder, Script, Transaction,
 };
 use ckb_std::ckb_types::prelude::Pack;
 use ckb_std::debug;
@@ -29,17 +28,16 @@ use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use ckb_std::ckb_types::prelude::{Builder, Entity, ShouldBeOk, Unpack};
+use ckb_std::ckb_types::prelude::{Builder, Entity, Unpack};
 
 mod error;
 mod fallback;
 mod modules;
 mod utils;
 
-use ckb_std::high_level::decode_hex;
 use ckb_std::syscalls::{pipe, write};
 use error::Error;
-use serde_molecule::{from_slice, to_vec};
+use serde_molecule::to_vec;
 
 pub fn get_pausable_data() -> Result<UDTPausableData, Error> {
     debug!("Entered get_pausable_data");
@@ -110,7 +108,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 .collect();
 
             let to_amount_bytes = decode_hex(argv[3].as_ref())?;
-            let to_amount_vec: Vec<u128> = decode_hex(argv[3].as_ref())?[4..]
+            let to_amount_vec: Vec<u128> = to_amount_bytes[4..]
                 .chunks(16)
                 .map(|chunk| {
                     return u128::from_le_bytes(chunk.try_into().unwrap())}
@@ -121,7 +119,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
 
-            let mut tx: Option<Transaction> = None;
+            let tx: Option<Transaction>;
             if argv[1].is_empty() {
                 tx = None;
             } else {
@@ -141,7 +139,7 @@ fn program_entry_wrap() -> Result<(), Error> {
             debug!("program_entry_wrap | to_lock_vec: {:?}", to_lock_vec);
 
             let to_amount_bytes = decode_hex(argv[3].as_ref())?;
-            let to_amount_vec: Vec<u128> = decode_hex(argv[3].as_ref())?[4..]
+            let to_amount_vec: Vec<u128> = to_amount_bytes[4..]
                 .chunks(16)
                 .map(|chunk| {
                     return u128::from_le_bytes(chunk.try_into().unwrap())}
@@ -153,7 +151,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
 
-            let mut tx: Option<Transaction> = None;
+            let tx: Option<Transaction>;
             if argv[1].is_empty() {
                 tx = None;
             } else {
@@ -172,7 +170,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
 
-            let mut tx: Option<Transaction> = None;
+            let tx: Option<Transaction>;
             if argv[1].is_empty() {
                 tx = None;
             } else {
@@ -191,7 +189,7 @@ fn program_entry_wrap() -> Result<(), Error> {
                 Err(Error::SSRIMethodsArgsInvalid)?;
             }
 
-            let mut tx: Option<Transaction> = None;
+            let tx: Option<Transaction>;
             if argv[1].is_empty() {
                 tx = None;
             } else {

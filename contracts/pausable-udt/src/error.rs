@@ -82,6 +82,7 @@ pub enum Error {
     InvalidPauseData,
 }
 
+#[allow(non_snake_case, unused)]
 impl From<SysError> for Error {
     fn from(err: SysError) -> Self {
         use SysError::*;
@@ -108,7 +109,7 @@ impl From<serde_molecule::Error> for Error {
     fn from(err: serde_molecule::Error) -> Self {
         use serde_molecule::Error::*;
         match err {
-            Message(string) => Self::SerdeMoleculeErrorWithMessage,
+            Message(_string) => Self::SerdeMoleculeErrorWithMessage,
             MismatchedLength => Self::MismatchedLength,
             LengthNotEnough => Self::SerdeMoleculeLengthNotEnough,
             Unimplemented => Self::Unimplemented,
