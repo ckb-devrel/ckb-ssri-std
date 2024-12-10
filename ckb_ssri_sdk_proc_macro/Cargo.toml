@@ -18,4 +18,3 @@ ckb-hash = "0.116.1"
 quote = "1.0.37"
 syn = { version = "2.0", features = ["full"] }
 proc-macro2 = "1.0.87"
-ckb_ssri_sdk = { path = "../ckb_ssri_sdk", version = "0.1.0" }
