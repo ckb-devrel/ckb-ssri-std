@@ -11,9 +11,9 @@ use ckb_ssri_sdk::prelude::decode_u8_32_vector;
 use ckb_ssri_sdk::utils::should_fallback;
 use ckb_ssri_sdk_proc_macro::ssri_methods;
 use ckb_std::ckb_types::packed::{
-    BytesVec, BytesVecBuilder, Script, Transaction,
+    Bytes, BytesVec, BytesVecBuilder, Script, ScriptBuilder, Transaction,
 };
-use ckb_std::ckb_types::prelude::Pack;
+use ckb_std::ckb_types::prelude::{Pack, ShouldBeOk};
 use ckb_std::debug;
 #[cfg(not(test))]
 use ckb_std::default_alloc;
@@ -22,7 +22,7 @@ ckb_std::entry!(program_entry);
 #[cfg(not(test))]
 default_alloc!();
 
-use ckb_ssri_sdk::public_module_traits::udt::{UDTPausable, UDTPausableData, UDT};
+use ckb_ssri_sdk::public_module_traits::udt::{ScriptLike, UDTPausable, UDTPausableData, UDT};
 
 use alloc::string::String;
 use alloc::vec;
@@ -35,6 +35,7 @@ mod fallback;
 mod modules;
 mod utils;
 
+use ckb_std::high_level::decode_hex;
 use ckb_std::syscalls::{pipe, write};
 use error::Error;
 use serde_molecule::to_vec;
@@ -62,7 +63,30 @@ pub fn get_pausable_data() -> Result<UDTPausableData, Error> {
         //         .map_err(|_| Error::InvalidPauseData)?
         //         .as_c_str()[2..],
         // )?
-        next_type_script: None,
+        next_type_script: Some(ScriptLike {
+            code_hash: decode_hex(
+                &CString::new("0x00000000000000000000000000000000000000000000000000545950455f4944")
+                    .map_err(|_| Error::InvalidPauseData)?
+                    .as_c_str()[2..],
+            )?
+            .try_into().map_err(|_| Error::InvalidPauseData)?,
+            args: decode_hex(
+                &CString::new("0x4804b04f37f22f77b3cb621e6fbc471330893c98c56868f0d74b91cc996fe0cb")
+                    .map_err(|_| Error::InvalidPauseData)?
+                    .as_c_str()[2..],
+            )?,
+            hash_type: 1u8.into(),
+        }), // ScriptBuilder::default()
+            //     .args(Bytes::from_compatible_slice(&decode_hex(
+            //         &CString::new("0xeaeb071fc556c96f082141c6332cc92b3c23cbfa30969d477408e65d27715429")
+            //             .map_err(|_| Error::InvalidPauseData)?
+            //             .as_c_str()[2..],
+            //     )?)?)
+            //     .code_hash(Byte32::from_compatible_slice(&decode_hex(
+            //         &CString::new("0x00000000000000000000000000000000000000000000000000545950455f4944")
+            //             .map_err(|_| Error::InvalidPauseData)?
+            //             .as_c_str()[2..],
+            //     )?)?),
     })
 }
 
@@ -89,13 +113,13 @@ fn program_entry_wrap() -> Result<(), Error> {
             Ok(Cow::from(vec!(response as u8)))
         },
         "UDTPausable.enumerate_paused" => {
-            let offset = u64::from_le_bytes(decode_hex(argv[1].as_ref())?[..4].try_into().unwrap_or_default());
-            let limit = u64::from_le_bytes(decode_hex(argv[2].as_ref())?[..4].try_into().unwrap_or_default());
+            let offset = u64::from_le_bytes(decode_hex(argv[1].as_ref())?.try_into().unwrap_or_default());
+            let limit = u64::from_le_bytes(decode_hex(argv[2].as_ref())?.try_into().unwrap_or_default());
             let response = modules::PausableUDT::enumerate_paused(offset, limit)?;
             let mut pausable_data_vec_builder = BytesVecBuilder::default();
             for item in response {
                 pausable_data_vec_builder =
-                    pausable_data_vec_builder.push(to_vec(&item, false).unwrap().pack());
+                    pausable_data_vec_builder.push(to_vec(&item, false)?.pack());
             }
             Ok(Cow::from(pausable_data_vec_builder.build().as_bytes().to_vec()))
         },

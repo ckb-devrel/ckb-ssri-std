@@ -49,13 +49,13 @@ pub trait UDTPausable: UDT {
     fn enumerate_paused(offset: u64, limit: u64) -> Result<Vec<UDTPausableData>, Self::Error>;
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UDTPausableData {
     pub pause_list: Vec<[u8; 32]>,
     pub next_type_script: Option<ScriptLike>
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ScriptLike {
     pub code_hash: [u8; 32],
     pub hash_type: u8,
