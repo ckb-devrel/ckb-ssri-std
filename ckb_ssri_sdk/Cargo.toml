@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# quote = "1.0"
-# syn = { version = "2.0", features = ["full"] }
 ckb-std = { version = "0.16.4", features = [
   "allocator",
   "ckb-types",

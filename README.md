@@ -1,4 +1,7 @@
 # ckb_ssri_sdk
+
+## This crate is not officially released yet!
+
 >
 > [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256): General introduction to SSRI.
 >
