@@ -3,9 +3,11 @@ use core::arch::asm;
 
 use ckb_std::{ckb_constants::SYS_VM_VERSION, debug, error::SysError};
 
-
+/// System call number for finding an OutPoint by type script
 pub const SYS_FIND_OUT_POINT_BY_TYPE: u64 = 2277;
+/// System call number for finding a cell by OutPoint
 pub const SYS_FIND_CELL_BY_OUT_POINT: u64 = 2287;
+/// System call number for finding cell data by OutPoint
 pub const SYS_FIND_CELL_DATA_BY_OUT_POINT: u64 = 2297;
 
 #[cfg(target_arch = "riscv64")]
