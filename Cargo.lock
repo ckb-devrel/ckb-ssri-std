@@ -92,7 +92,7 @@ name = "ckb_ssri_sdk"
 version = "0.1.0"
 dependencies = [
  "ckb-std",
- "ckb_ssri_sdk_proc_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ckb_ssri_sdk_proc_macro",
  "serde",
  "serde_molecule",
 ]
@@ -100,18 +100,6 @@ dependencies = [
 [[package]]
 name = "ckb_ssri_sdk_proc_macro"
 version = "0.1.0"
-dependencies = [
- "ckb-hash 0.116.1",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "ckb_ssri_sdk_proc_macro"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e6e439f89d56a2ac637295ba68ac0dc91b6560c803cdf4f645e21a433eec81d"
 dependencies = [
  "ckb-hash 0.116.1",
  "proc-macro2",
