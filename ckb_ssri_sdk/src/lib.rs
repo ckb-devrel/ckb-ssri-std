@@ -5,6 +5,10 @@
 pub mod public_module_traits;
 pub mod prelude;
 pub mod utils;
+pub mod macros;
+
+// Re-export proc macros at crate root for convenience
+pub use macros::*;
 
 extern crate alloc;
 
