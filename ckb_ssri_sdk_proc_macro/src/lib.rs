@@ -6,7 +6,6 @@ extern crate proc_macro;
 use core::panic;
 
 use ckb_hash::blake2b_256;
-use ckb_ssri_sdk::prelude::encode_u64_vector;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::ImplItemFn;
@@ -19,6 +18,14 @@ use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
+
+fn encode_u64_vector(val: impl AsRef<[u64]>) -> Vec<u8> {
+    let val = val.as_ref();
+    u32::to_le_bytes(val.len() as u32)
+        .into_iter()
+        .chain(val.iter().flat_map(|v| u64::to_le_bytes(*v)))
+        .collect()
+}
 
 // Struct to hold method metadata for reflection and dispatch
 struct SSRIMethodMetadata {
