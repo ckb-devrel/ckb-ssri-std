@@ -49,6 +49,7 @@ pub trait UDT {
     fn name() -> Result<Bytes, Self::Error>;
     fn symbol() -> Result<Bytes, Self::Error>;
     fn decimals() -> Result<u8, Self::Error>;
+    fn icon() -> Result<Bytes, Self::Error>;
     fn mint(
         tx: Option<Transaction>,
         to_lock_vec: Vec<Script>,
