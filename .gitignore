@@ -5,3 +5,5 @@ deploy-tx.json
 .vscode
 /deployment
 /migrations
+.aider*
+.env
