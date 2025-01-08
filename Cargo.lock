@@ -89,7 +89,7 @@ dependencies = [
 
 [[package]]
 name = "ckb_ssri_sdk"
-version = "0.1.1"
+version = "0.1.2-alpha.1"
 dependencies = [
  "ckb-std",
  "ckb_ssri_sdk_proc_macro",
@@ -99,7 +99,7 @@ dependencies = [
 
 [[package]]
 name = "ckb_ssri_sdk_proc_macro"
-version = "0.1.0"
+version = "0.1.2-alpha.1"
 dependencies = [
  "ckb-hash 0.116.1",
  "proc-macro2",
