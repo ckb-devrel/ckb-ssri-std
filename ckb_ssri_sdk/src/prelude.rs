@@ -1,7 +1,4 @@
-use alloc::format;
 use alloc::vec::Vec;
-use alloc::string::String;
-use ckb_std::debug;
 
 pub fn encode_u64_vector(val: impl AsRef<[u64]>) -> Vec<u8> {
     let val = val.as_ref();

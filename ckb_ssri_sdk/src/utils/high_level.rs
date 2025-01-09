@@ -1,7 +1,14 @@
 use crate::utils::syscalls;
-use ckb_std::{ckb_types::{packed::{CellOutput, CellOutputReader, OutPoint, OutPointReader, Script}, prelude::*}, error::SysError, high_level::BUF_SIZE};
-use alloc::vec::Vec;
 use alloc::vec;
+use alloc::vec::Vec;
+use ckb_std::{
+    ckb_types::{
+        packed::{CellOutput, CellOutputReader, OutPoint, OutPointReader, Script},
+        prelude::*,
+    },
+    error::SysError,
+    high_level::BUF_SIZE,
+};
 
 /// Common method to fully load data from syscall
 fn load_data<F: Fn(&mut [u8], usize) -> Result<usize, SysError>>(
@@ -91,7 +98,7 @@ pub fn find_out_point_by_type(type_script: Script) -> Result<OutPoint, SysError>
 /// potentially causing an out-of-memory error.
 pub fn find_cell_by_out_point(out_point: OutPoint) -> Result<CellOutput, SysError> {
     let data =
-        load_data(|buf, offset| syscalls::find_cell_by_out_point(buf, out_point.as_slice()))?;
+        load_data(|buf, _offset| syscalls::find_cell_by_out_point(buf, out_point.as_slice()))?;
 
     match CellOutputReader::verify(&data, false) {
         Ok(()) => Ok(CellOutput::new_unchecked(data.into())),
@@ -129,5 +136,5 @@ pub fn find_cell_by_out_point(out_point: OutPoint) -> Result<CellOutput, SysErro
 /// This function can panic if the underlying data is too large,
 /// potentially causing an out-of-memory error.
 pub fn find_cell_data_by_out_point(out_point: OutPoint) -> Result<Vec<u8>, SysError> {
-    load_data(|buf, offset| syscalls::find_cell_data_by_out_point(buf, out_point.as_slice()))
+    load_data(|buf, _offset| syscalls::find_cell_data_by_out_point(buf, out_point.as_slice()))
 }

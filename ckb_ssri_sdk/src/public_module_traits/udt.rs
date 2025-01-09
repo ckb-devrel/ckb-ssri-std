@@ -5,9 +5,7 @@ use ckb_std::ckb_types::{
 extern crate alloc;
 
 use alloc::vec::Vec;
-use alloc::string::String;
 use serde::{Deserialize, Serialize};
-use serde_molecule::dynvec_serde;
 
 /// User-Defined Token (UDT) trait for implementing custom tokens on CKB
 ///

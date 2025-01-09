@@ -1,7 +1,7 @@
 #[cfg(target_arch = "riscv64")]
 use core::arch::asm;
 
-use ckb_std::{ckb_constants::SYS_VM_VERSION, debug, error::SysError};
+use ckb_std::{ckb_constants::SYS_VM_VERSION, error::SysError};
 
 /// System call number for finding an OutPoint by type script
 pub const SYS_FIND_OUT_POINT_BY_TYPE: u64 = 2277;
