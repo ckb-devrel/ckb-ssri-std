@@ -2,8 +2,8 @@
 resolver = "2"
 
 members = [
-  "ckb_ssri_sdk",
-  "ckb_ssri_sdk_proc_macro",
+  "ckb-ssri-std",
+  "ckb-ssri-std-proc-macro",
   # Please don't remove the following line, we use it to automatically
   # detect insertion point for newly generated crates.
   # @@INSERTION_POINT@@

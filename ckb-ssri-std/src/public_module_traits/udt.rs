@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```rust,no_run
-/// use ckb_ssri_sdk::public_module_traits::udt::UDT;
+/// use ckb_ssri_std::public_module_traits::udt::UDT;
 ///
 /// struct MyToken;
 ///

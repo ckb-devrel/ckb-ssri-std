@@ -1,4 +1,4 @@
-# ckb_ssri_sdk
+# ckb-ssri-std
 
 >
 > [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256): General introduction to SSRI.
@@ -16,7 +16,7 @@
         1. In the typical scenario of validating transactions, by specifically using Rust Traits, we recognize the purpose (or more specifically, the `Intent` of running the script) (e.g., `minting UDT`, `transferring`) and build relevant validation logics within the scope of the corresponding method.
         2. On the level of reading and organizing contract code, by selectively implementing methods of public module traits (e.g. `UDT`, `UDTExtended`, `UDTPausable`) in combinations, generic users and devs would be able to quickly understand and organize functionalities of contracts as well as the relevant adaptations / integrations in dApps , especially in use cases involving multiple distinct contracts (and very likely from different projects) within same transactions.
 
-### Goals of `ckb_ssri_sdk`
+### Goals of `ckb-ssri-std`
 
 - Easier and intuitive implementations and built-in integration support (e.g. `CCC` and `ckb_ssri_cli`) of SSRI public traits.
 - Easier and intuitive definitions of customized SSRI traits.
@@ -32,11 +32,11 @@
         - `SSRI.get_methods(offset: u64, limit: u64) -> Vec<Bytes8>`
         - `SSRI.has_methods(methods: Vec<Bytes8>) -> Vec<bool>`
     - [ ] TODO: By using the `#[ssri_module]` macro and `#[ssri_method]` attribute, methods can be automatically exposed in the namespace defined by trait name.
-3. By implementing traits from `ckb_ssri_sdk::public_module_traits` in the SSRI-Compliant Smart Contract, infrastructures would be able to provide richer information off-chain as well for all kinds of purposes based on the SSRI protocol.
+3. By implementing traits from `ckb_ssri_std::public_module_traits` in the SSRI-Compliant Smart Contract, infrastructures would be able to provide richer information off-chain as well for all kinds of purposes based on the SSRI protocol.
 
 ## Example Contract
 
-[`pausable-udt`](https://github.com/Alive24/ckb_ssri_sdk/tree/main/contracts/pausable-udt) is a real production level contract (instead of a pseudo-project) that exemplifies the usage of SSRI.
+[`pausable-udt`](https://github.com/ckb-devrel/pausable-udt) is a real production level contract (instead of a pseudo-project) that exemplifies the usage of SSRI.
 
 ## [ ] TODO: Defining a SSRI Module with `proc-macros` and Implement SSRI Traits
 

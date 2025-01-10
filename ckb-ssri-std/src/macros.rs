@@ -1,7 +1,7 @@
-//! Re-exports of procedural macros from ckb_ssri_sdk_proc_macro
+//! Re-exports of procedural macros from ckb-ssri-std-proc-macro
 //!
 //! This module provides convenient access to all procedural macros defined in the
-//! `ckb_ssri_sdk_proc_macro` crate. These macros are essential for implementing
+//! `ckb-ssri-std-proc-macro` crate. These macros are essential for implementing
 //! SSRI-compliant smart contracts.
 //!
 //! # Available Macros
@@ -12,7 +12,7 @@
 //! # Example
 //!
 //! ```ignore
-//! use ckb_ssri_sdk::macros::*;
+//! use ckb_ssri_std::macros::*;
 //!
 //! #[ssri_module]
 //! mod my_contract {
@@ -23,4 +23,4 @@
 //! }
 //! ```
 
-pub use ckb_ssri_sdk_proc_macro::*;
+pub use ckb_ssri_std_proc_macro::*;
