@@ -1,13 +1,11 @@
 use ckb_std::ckb_types::{
     bytes::Bytes,
-    packed::{Transaction, Script},
+    packed::{Byte32Vec, Script, Transaction},
 };
 extern crate alloc;
 
 use alloc::vec::Vec;
-use alloc::string::String;
 use serde::{Deserialize, Serialize};
-use serde_molecule::dynvec_serde;
 
 /// User-Defined Token (UDT) trait for implementing custom tokens on CKB
 ///
@@ -23,7 +21,7 @@ use serde_molecule::dynvec_serde;
 /// # Example
 ///
 /// ```rust,no_run
-/// use ckb_ssri_sdk::public_module_traits::udt::UDT;
+/// use ckb_ssri_std::public_module_traits::udt::UDT;
 ///
 /// struct MyToken;
 ///
@@ -39,7 +37,6 @@ use serde_molecule::dynvec_serde;
 /// ```
 pub trait UDT {
     type Error;
-    fn balance() -> Result<u128, Self::Error>;
     fn transfer(
         tx: Option<Transaction>,
         to_lock_vec: Vec<Script>,
@@ -74,8 +71,8 @@ pub trait UDTPausable: UDT {
         tx: Option<Transaction>,
         lock_hashes: &Vec<[u8; 32]>,
     ) -> Result<Transaction, Self::Error>;
-    fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<bool, Self::Error>;
-    fn enumerate_paused(offset: u64, limit: u64) -> Result<Vec<UDTPausableData>, Self::Error>;
+    fn is_paused(lock_hashes: &Vec<[u8; 32]>) -> Result<Vec<bool>, Self::Error>;
+    fn enumerate_paused(offset: u64, limit: u64) -> Result<Byte32Vec, Self::Error>;
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

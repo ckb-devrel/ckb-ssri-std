@@ -1,11 +1,11 @@
 [package]
-name = "ckb_ssri_sdk_proc_macro"
-version = "0.1.2-alpha.1"
+name = "ckb-ssri-std-proc-macro"
+version = "0.0.1"
 edition = "2021"
-description = "Procedural macros for CKB SSRI SDK"
+description = "Procedural macros for CKB SSRI std"
 license = "MIT"
-repository = "https://github.com/Alive24/ckb_ssri_sdk"
-documentation = "https://github.com/Alive24/ckb_ssri_sdk"
+repository = "https://github.com/ckb-devrel/ckb-ssri-std"
+documentation = "https://github.com/ckb-devrel/ckb-ssri-std"
 authors = ["Alive24 <xct24@live.com>"]
 keywords = ["ckb", "nervos", "blockchain", "smart-contracts", "ssri"]
 categories = ["cryptography::cryptocurrencies", "development-tools"]

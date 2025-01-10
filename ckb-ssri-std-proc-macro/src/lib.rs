@@ -7,15 +7,9 @@ use core::panic;
 
 use ckb_hash::blake2b_256;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::ImplItemFn;
-use syn::{
-    parse::Parse, parse_macro_input, Expr, ExprLit, Ident, ImplItem, ItemFn, ItemImpl, Lit, Meta,
-    Token,
-};
+use quote::quote;
+use syn::{parse::Parse, parse_macro_input, Expr, ExprLit, Ident, Lit, Token};
 
-use alloc::format;
-use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -26,7 +20,6 @@ fn encode_u64_vector(val: impl AsRef<[u64]>) -> Vec<u8> {
         .chain(val.iter().flat_map(|v| u64::to_le_bytes(*v)))
         .collect()
 }
-
 
 fn method_path(name: impl AsRef<[u8]>) -> u64 {
     u64::from_le_bytes(blake2b_256(name)[0..8].try_into().unwrap())
@@ -120,14 +113,14 @@ pub fn ssri_methods(input: TokenStream) -> TokenStream {
                             .try_into()
                             .map_err(|_| #invalid_args)?
                     ) as usize * 8), #raw_methods_len - 4);
-                    
+
                     // If second argument is 0, take all remaining methods
                     let second_arg = u64::from_le_bytes(
                         decode_hex(&(#argv)[2])?
                             .try_into()
                             .map_err(|_| #invalid_args)?
                     );
-                    
+
                     let mut raw_result: Vec<u8>;
                     if second_arg == 0 {
                         // Take all remaining methods from offset

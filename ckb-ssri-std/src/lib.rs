@@ -1,11 +1,11 @@
 #![no_std]
-//! # CKB SSRI SDK
+//! # CKB SSRI std
 //! 
-//! A comprehensive framework for implementing SSRI-compliant smart contracts on the Nervos CKB blockchain.
+//! Utils for implementing SSRI-compliant smart contracts on the Nervos CKB blockchain.
 //! 
 //! ## Overview
 //! 
-//! The SSRI (Standard Smart Contract Runtime Interface) SDK provides a standardized way to develop
+//! The SSRI (Standard Smart Contract Runtime Interface) std provides a standardized way to develop
 //! smart contracts that are compliant with the SSRI protocol. This enables better interoperability
 //! and a more consistent development experience across the CKB ecosystem.
 //!
@@ -21,14 +21,14 @@
 //! Add this to your `Cargo.toml`:
 //! ```toml
 //! [dependencies]
-//! ckb_ssri_sdk = "0.1.0"
+//! ckb-ssri-std = "0.1.0"
 //! ```
 //!
 //! ## Example
 //!
 //! ```rust,no_run
-//! use ckb_ssri_sdk::prelude::*;
-//! use ckb_ssri_sdk::public_module_traits::udt::UDT;
+//! use ckb_ssri_std::prelude::*;
+//! use ckb_ssri_std::public_module_traits::udt::UDT;
 //! 
 //! // Implement a basic UDT (User-Defined Token)
 //! #[derive(Default)]
@@ -92,7 +92,7 @@ extern crate alloc;
 /// # Examples
 ///
 /// ```rust
-/// use ckb_ssri_sdk::SSRIError;
+/// use ckb_ssri_std::SSRIError;
 ///
 /// fn example_handler() -> Result<(), SSRIError> {
 ///     // Method implementation missing
