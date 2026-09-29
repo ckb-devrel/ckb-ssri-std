@@ -1,20 +1,19 @@
 #![no_std]
 //! # CKB SSRI std
-//! 
+//!
 //! Utils for implementing SSRI-compliant smart contracts on the Nervos CKB blockchain.
-//! 
+//!
 //! ## Overview
-//! 
-//! The SSRI (Standard Smart Contract Runtime Interface) std provides a standardized way to develop
-//! smart contracts that are compliant with the SSRI protocol. This enables better interoperability
-//! and a more consistent development experience across the CKB ecosystem.
+//!
+//! - SSRI stands for `Script Sourced Rich Information`; it is a protocol for strong bindings of relevant information and conventions to the Script itself on CKB. For more information, please read [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256)>.
+//! - For writing CKB Scripts (or "Smart Contracts"), by selectively implementing methods of public module traits (e.g. `UDT`, `UDTExtended`, `UDTPausable`) in combinations, devs would be able to quickly design and organize functionalities that either validate transactions or provide rich information as well as assembling transactions off-chain.
+//! - For dApps or other infrastructures that interact with CKB Scripts, you no longer need to retrieve and parse data or assemble transactions by yourself repetitively as they are all provided by SSRI.
+
 //!
 //! ## Features
-//! 
-//! - **Public Traits**: Pre-defined interfaces that receive first-class support within the ecosystem
+//!
 //! - **Utility Functions**: Helper functions for SSRI-VM syscalls and data handling
 //! - **Procedural Macros**: Simplify contract development with automatic SSRI method generation
-//! - **No Standard Library**: Designed for the constrained smart contract environment
 //!
 //! ## Usage
 //!
@@ -25,80 +24,73 @@
 //! ```
 //!
 //! ## Example
-//!
-//! ```rust,no_run
-//! use ckb_ssri_std::prelude::*;
-//! use ckb_ssri_std::public_module_traits::udt::UDT;
-//! 
-//! // Implement a basic UDT (User-Defined Token)
-//! #[derive(Default)]
-//! struct MyToken;
-//! 
-//! impl UDT for MyToken {
-//!     type Error = ();
-//!     // ... implement required methods
-//! }
-//! ```
+//! [`pausable-udt`](https://github.com/ckb-devrel/pausable-udt) is a real production level contract (instead of a pseudo-project) that exemplifies the usage of SSRI.
 
-pub mod public_module_traits;
-pub mod prelude;
-pub mod utils;
+pub mod high_level;
+pub mod indexer;
 pub mod macros;
+pub mod prelude;
+pub mod syscalls;
 
 // Re-export proc macros at crate root for convenience
 pub use macros::*;
 
 extern crate alloc;
 
-// macro_rules! ssri_entry {
-//     ( $( $module:path ),* $(,)? ) => {
-//         pub fn unified_dispatch(namespace_and_function: &str, args: Vec<&str>) -> Result<String, crate::error::DispatchError> {
-//             $(
-//                 let argv = ckb_std::env::argv();
-//                 if argv.is_empty() {
-//                     return fallback::fallback().map(|_| ());
-//                 }
+use ckb_std::debug;
 
-//                 if vm_version() != u64::MAX {
-//                     return Err(Error::InvalidVmVersion);
-//                 }
+/// Choose the on-chain or native-injection syscall of the same name.
+///
+/// `should_fallback` is the environment check. With the `on-chain` feature,
+/// `Ok(true)` calls `on_chain::$name` and `Ok(false)` calls `native::$name`.
+/// Without that feature, `Ok(true)` returns `SysError::Unknown(u64::MAX)`.
+/// `InvalidVmVersion` becomes the same error.
+#[cfg(feature = "on-chain")]
+#[macro_export]
+macro_rules! syscall_branch {
+    ($name:ident($($arg:expr),* $(,)?)) => {{
+        use $crate::{syscalls::{native, on_chain}, should_fallback};
+        match should_fallback() {
+            Ok(true) => on_chain::$name($($arg),*),
+            Ok(false) => native::$name($($arg),*),
+            Err(_) => Err(ckb_std::error::SysError::Unknown(u64::MAX)),
+        }
+    }};
+}
 
-//                 set_content(&res)?;
-//                 if $module::EXPOSED_FUNCTIONS.contains(&namespace_and_function) {
-//                     return $module::dispatch_function(namespace_and_function, args);
-//                 }
-//             )*
-//             Err(crate::error::DispatchError::FunctionNotFound)
-//         }
+/// Choose the native-injection syscall of the given name.
+///
+/// The `on-chain` feature is disabled, so `should_fallback` returning `Ok(true)`
+/// or `InvalidVmVersion` becomes `SysError::Unknown(u64::MAX)`. `Ok(false)` calls
+/// `native::$name`.
+#[cfg(not(feature = "on-chain"))]
+#[macro_export]
+macro_rules! syscall_branch {
+    ($name:ident($($arg:expr),* $(,)?)) => {{
+        use $crate::{should_fallback, syscalls::native};
+        match should_fallback() {
+            Ok(false) => native::$name($($arg),*),
+            _ => Err(ckb_std::error::SysError::Unknown(u64::MAX)),
+        }
+    }};
+}
 
-//         pub fn get_methods() -> Vec<&'static str> {
-//             let mut methods = Vec::new();
-//             $(
-//                 methods.extend_from_slice($module::EXPOSED_FUNCTIONS);
-//             )*
-//             methods
-//         }
-//     };
-// }
+pub fn should_fallback() -> Result<bool, SSRIError> {
+    if ckb_std::env::argv().is_empty() {
+        debug!("Should fallback!");
+        Ok(true)
+    } else if syscalls::raw::vm_version() != u64::MAX {
+        Err(SSRIError::InvalidVmVersion)
+    } else {
+        debug!("Should not fallback!");
+        Ok(false)
+    }
+}
 
 #[repr(i8)]
 #[derive(Debug)]
 /// Represents possible errors that can occur during SSRI method execution
-///
-/// This enum provides a standardized set of errors that can occur when executing
-/// SSRI methods. These errors help identify issues with method discovery,
-/// argument validation, implementation status, and environment compatibility.
-///
-/// # Examples
-///
-/// ```rust
-/// use ckb_ssri_std::SSRIError;
-///
-/// fn example_handler() -> Result<(), SSRIError> {
-///     // Method implementation missing
-///     Err(SSRIError::SSRIMethodsNotImplemented)
-/// }
-/// ```
+/// Should be derivable to `Error` for the actual script to use.
 pub enum SSRIError {
     /// The requested SSRI method was not found in the contract
     SSRIMethodsNotFound,
@@ -109,5 +101,5 @@ pub enum SSRIError {
     /// The method requires a higher execution environment level
     SSRIMethodRequireHigherLevel,
     /// The CKB VM version is not compatible with this implementation
-    InvalidVmVersion
+    InvalidVmVersion,
 }

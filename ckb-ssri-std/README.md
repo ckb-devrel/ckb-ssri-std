@@ -1,98 +1,122 @@
 # ckb-ssri-std
 
->
-> [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256): General introduction to SSRI.
->
-> [`ssri-test`](https://github.com/Hanssen0/ssri-test): First prototype of SSRI-Compliant contract.
->
-> [`ssri-server`](https://github.com/ckb-devrel/ssri-server): Server for calling SSRI methods.
->
+`no_std` library for SSRI-compliant CKB scripts. It selects a native or on-chain syscall backend from the invocation environment, parses indexer molecule values, and re-exports [`ssri_methods`](../ckb-ssri-std-proc-macro/README.md) for method dispatch.
 
-## Quick Note on SSRI
-
-- SSRI stands for `Script Sourced Rich Information`; it is a protocol for strong bindings of relevant information and conventions to the Script itself on CKB. For more information, please read [[EN/CN] Script-Sourced Rich Information - 来源于 Script 的富信息](https://talk.nervos.org/t/en-cn-script-sourced-rich-information-script/8256)>.
-- Such bindings would take place in a progressive pattern:
-    - In the current coding paradigms for all contracts in production, testing, or active development, (or specifically, in Stage 1), the CKB smart contract being SSRI-Compliant would help us:
-        1. In the typical scenario of validating transactions, by specifically using Rust Traits, we recognize the purpose (or more specifically, the `Intent` of running the script) (e.g., `minting UDT`, `transferring`) and build relevant validation logics within the scope of the corresponding method.
-        2. On the level of reading and organizing contract code, by selectively implementing methods of public module traits (e.g. `UDT`, `UDTExtended`, `UDTPausable`) in combinations, generic users and devs would be able to quickly understand and organize functionalities of contracts as well as the relevant adaptations / integrations in dApps , especially in use cases involving multiple distinct contracts (and very likely from different projects) within same transactions.
-
-### Goals of `ckb-ssri-std`
-
-- Easier and intuitive implementations and built-in integration support (e.g. `CCC` and `ckb_ssri_cli`) of SSRI public traits.
-- Easier and intuitive definitions of customized SSRI traits.
-- [ ] TODO: Unified entry function;
-- Scrip-Sourced code sharing for on-chain verification, off-chain query/integration, and off-chain transaction generations/completions.
-
-## Usage
-
-1. [ ] TODO: SSRI-Compliant Smart Contract Code would have an identifier Type that also implements TypeID mechanism. Please use [`ckb-cinnabar`](https://github.com/ashuralyk/ckb-cinnabar?tab=readme-ov-file#deployment-module) for easier deployment and migration.
-2. SSRI-Compliant Smart Contract would use the unified entry function to run the script and call the exposed methods by specifying the path at `argv[0]` and the arguments at `argv[1..]`.
-    - The default namespace is `SSRI` which consists of:
-        - `SSRI.version() -> u8`
-        - `SSRI.get_methods(offset: u64, limit: u64) -> Vec<Bytes8>`
-        - `SSRI.has_methods(methods: Vec<Bytes8>) -> Vec<bool>`
-    - [ ] TODO: By using the `#[ssri_module]` macro and `#[ssri_method]` attribute, methods can be automatically exposed in the namespace defined by trait name.
-3. By implementing traits from `ckb_ssri_std::public_module_traits` in the SSRI-Compliant Smart Contract, infrastructures would be able to provide richer information off-chain as well for all kinds of purposes based on the SSRI protocol.
-
-## Example Contract
-
-[`pausable-udt`](https://github.com/ckb-devrel/pausable-udt) is a real production level contract (instead of a pseudo-project) that exemplifies the usage of SSRI.
-
-## [ ] TODO: Defining a SSRI Module with `proc-macros` and Implement SSRI Traits
-
-### #[ssri_module]
-
-- version: implement a method to get the version of the SSRI module.
-
-### #[ssri_method]
-
-- By default, all of the following flags are set to false or empty;
-- 'level={ExecutionEnvironmentLevel}': This method can only be run when the execution environment level is above or equal to the specified level;
-- 'transaction=true': Will return a transaction object of molecule `struct` that can be sent to directly to RPC. If transaction is set to true, the required level is automatically set to Chain;
-- 'internal=true': This method is not exposed through SSRI, but it's a dependency for other methods;
-
-## Defining a SSRI Public Module Trait
-
-## Deployment and Migration
-
-- Deploy and upgrade with [ckb-cinnabar](https://github.com/ashuralyk/ckb-cinnabar?tab=readme-ov-file#deployment-module) for easier deployment and migration with Type ID.
-
-```shell
-ckb-cinnabar deploy --contract-name pausable-udt --tag transaction.v241112 --payer-address ckt1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqtxe0gs9yvwrsc40znvdc6sg4fehd2mttsngg4t4 --type-id 
-
-
-ckb-cinnabar migrate --contract-name pausable-udt --from-tag v241030.1 --to-tag v241030.2
+```toml
+[dependencies]
+ckb-ssri-std = "0.0.1"
 ```
 
-## Interacting with SSRI-Compliant Contracts
+The `on-chain` feature compiles `syscalls::on_chain`. It is off by default. Enable it when a script must answer these syscalls during transaction verification:
 
-With SSRI-server and SSRI-VM, users, devs, and admins would have the ability to obtain Script-Source Rich Information directly from the script by calling SSRI methods via SSRI-server (which can be both run locally and for public usage).
+```toml
+ckb-ssri-std = { version = "0.0.1", features = ["on-chain"] }
+```
 
-The returned information can be just data for display, or a transaction object that can be sent to a CKB RPC, without the need of extra implementations on either dApps or backend applications.
+The crate is `#![no_std]` and uses `alloc`. `ckb-ssri-std-proc-macro` is a dependency, so `ssri_methods!` is available from the crate root without a second dependency.
+
+## Layout
+
+| Path | What it is |
+| --- | --- |
+| crate root | `syscall_branch!`, `should_fallback`, `SSRIError`, and `ssri_methods` |
+| `high_level` | Syscalls that return parsed molecule or `ckb_types` values |
+| `indexer` | `serde_molecule` types for `get_cells` and `get_live_cell` |
+| `syscalls` | `native` backend, optional `on_chain` backend (`on-chain` feature), syscall numbers in `catalog`, and the `raw` `ecall` |
+| `prelude` | Length-prefixed codecs for `u64` and `[u8; 32]` vectors |
+
+Call `high_level` from a script. `syscall_branch!` chooses `syscalls::native` or, when the `on-chain` feature is enabled, `syscalls::on_chain`. A syscall is part of SSRI only when both backends exist and share a signature.
+
+## Backend selection
+
+`should_fallback` reads the current environment:
+
+| Condition | Result |
+| --- | --- |
+| `argv` is empty | `Ok(true)`, use `on_chain` when the `on-chain` feature is enabled |
+| `argv` is present and `vm_version` is `u64::MAX` | `Ok(false)`, use `native` |
+| `argv` is present and `vm_version` is anything else | `Err(SSRIError::InvalidVmVersion)` |
+
+Empty `argv` is transaction verification: the on-chain backend answers from cell deps, header deps, and inputs. A present `argv` with the host stub (`vm_version == u64::MAX`) is native injection, where the host serves the same calls. `syscall_branch!` turns `InvalidVmVersion` into `SysError::Unknown(u64::MAX)`. The same error is returned for `Ok(true)` when the `on-chain` feature is disabled.
+
+```rust
+use ckb_ssri_std::syscall_branch;
+
+let len = syscall_branch!(network(&mut buf))?;
+```
+
+With `on-chain` enabled, the macro calls `on_chain::network` or `native::network` with the same arguments. Without that feature it calls `native::network` only when `should_fallback` is `Ok(false)`.
+
+## High-level calls
+
+Each function loads the full syscall buffer, checks the encoding, and returns a typed value. Errors are `ckb_std::error::SysError`.
+
+| Function | Returns |
+| --- | --- |
+| `find_out_point_by_type(type_script)` | `OutPoint` of the first cell with that type script |
+| `find_cell_by_out_point(out_point)` | `CellOutput` |
+| `find_cell_data_by_out_point(out_point)` | cell data bytes |
+| `network()` | `Network`: `Mainnet`, `Testnet`, or `Unknown` |
+| `get_live_cell(out_point, with_data)` | `indexer::LiveCell` |
+| `get_header(block_hash)` | `Header` |
+| `get_header_by_number(block_number)` | `Header` |
+| `get_block_hash(block_number)` | `Byte32` |
+| `get_transaction_block_hash(tx_hash)` | block hash from `get_transaction`'s `tx_status.block_hash` |
+| `get_cells(search_key, order, limit, last_cursor)` | `indexer::Pagination` |
+
+`get_live_cell` and `get_cells` decode molecule bytes with `serde_molecule`. `SearchKey` follows ckb-indexer's search-key field order. `Order::Asc` is `0` and `Order::Desc` is `1`. `last_cursor` is the pagination cursor from the previous page; an empty slice starts at the first page.
+
+Syscall numbers live in `syscalls::catalog` (`2277` through `2367`).
+
+## Method dispatch
+
+`ssri_methods!` is re-exported from `ckb-ssri-std-proc-macro`. The block's type is `Result<Cow<'static, [u8]>, Error>`, and `Error` must already be in scope. `decode_hex` failures must convert into that `Error`.
+
+```rust
+use alloc::borrow::Cow;
+use ckb_ssri_std::ssri_methods;
+
+let res = ssri_methods!(
+    argv: ckb_std::env::argv(),
+    invalid_method: Error::SSRIMethodsNotFound,
+    invalid_args: Error::SSRIMethodsArgsInvalid,
+    "UDT.name" => Ok(Cow::Borrowed(b"MyToken")),
+);
+```
+
+`argv[0]` is the hex encoding of the method id: the first 8 bytes of `blake2b-256(name)`, read as a little-endian `u64`. These names are reserved and always dispatched by the macro:
+
+| Name | Behavior |
+| --- | --- |
+| `SSRI.version` | one byte, `0` |
+| `SSRI.get_methods` | a page of method ids; `argv[1]` is the start index and `argv[2]` is the count (`0` means the rest) |
+| `SSRI.has_methods` | one `0` or `1` per id in `argv[1]` |
+
+Each custom arm is `"name" => expr,` and `expr` has the same `Result` type as the block. A trailing comma is required after `invalid_args` and after every arm. See the [proc-macro README](../ckb-ssri-std-proc-macro/README.md) for the argv layout.
+
+## `SSRIError`
+
+`SSRIError` is `#[repr(i8)]` so a script `Error` can include it:
+
+- `SSRIMethodsNotFound`
+- `SSRIMethodsArgsInvalid`
+- `SSRIMethodsNotImplemented`
+- `SSRIMethodRequireHigherLevel`
+- `InvalidVmVersion`
+
+## Prelude codecs
+
+`prelude` writes a little-endian `u32` length, then the payload:
+
+- `encode_u64_vector` / `decode_u64_vector` for `&[u64]`
+- `encode_u8_32_vector` / `decode_u8_32_vector` for `&[[u8; 32]]`
+
+## Testing a contract
+
+`ckb_testtools` covers on-chain verification. Off-chain queries and transaction assembly need `ckb_ssri_cli` against the latest deployment of the same contract.
+
+This crate's own tests:
 
 ```sh
-echo '{
-    "id": 2,
-    "jsonrpc": "2.0",
-    "method": "run_script",
-    "params": ["<TxHash of the target Cell>", <Index>, [<Bytes of methods path>, <...argv>]]
-}'
+cargo test -p ckb-ssri-std --all-targets --all-features
 ```
-
-### `ckb_ssri_cli`
-
-## Testing
-
-Due to the limitations of `ckb_testtools`, it is recommended to test the same SSRI-Compliant Contract on two level:
-
-- On-chain Verification: Test with `ckb_testtools`
-- Off-chain Query/Integration, Transaction Generations/Completions: Test with `ckb_ssri_cli` against the latest deployment.
-
-## Key Concepts
-
-### Execution Environment Levels
-
-- Code: If only the code hash is provided, the execution environment level is Code;
-- Script: If the code hash and args are both provided, the execution environment level is Script;
-- Cell: If the CellInput / Outpoint is provided, the execution environment level is Cell;
-- Transaction: If the Transaction Hash is provided, the execution environment level is Transaction; This is also the level of execution environment for regular CKB-VM when submitting transaction;
